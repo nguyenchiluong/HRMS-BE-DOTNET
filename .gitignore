@@ -1,0 +1,32 @@
+# .NET builds and outputs
+bin/
+obj/
+
+# User/IDE files
+.vs/
+.vscode/
+*.csproj.user
+*.user
+*.suo
+
+# Dependencies
+packages/
+
+# NuGet cache
+*.nupkg
+*.snupkg
+
+# EF Core local DBs
+Migrations/*.db
+
+# Secrets and local config
+appsettings.*.json
+secrets.json
+.env
+
+# Logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
