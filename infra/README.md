@@ -102,25 +102,10 @@ If you see version or SDK errors while building or running migrations, consider 
 
 ## Docker (Optional)
 
-Example `docker-compose.yml` to run Postgres locally:
+Run docker compose for quick data base set up with `postgres` and `pgadmin` ready to use. Use this command:
 
-```yml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_DB: hrms
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-
-volumes:
-  db_data:
+```pwsh
+docker-compose -f infra.yml up --build --env-file default.env
 ```
 
 After starting postgres with docker-compose, connect and create the schema:
@@ -130,34 +115,6 @@ docker exec -it <container> psql -U postgres -d hrms
 # Then run
 CREATE SCHEMA dotnet;
 ```
-
----
-
-## Endpoints (High-level Implementation)
-
-This project contains the new REST endpoints implemented in the API (see controller classes in `Controllers/`):
-
-- Requests API  (`Controllers/RequestsController.cs`)
-  - GET `/api/v1/requests`
-  - POST `/api/v1/requests`
-  - GET `/api/v1/requests/{id}`
-  - PATCH `/api/v1/requests/{id}`
-  - POST `/api/v1/requests/{id}/cancel`
-  - POST `/api/v1/requests/{id}/approve`
-  - POST `/api/v1/requests/{id}/reject`
-  - GET `/api/v1/requests/summary`
-
-- Attendance API (`Controllers/AttendanceController.cs`)
-  - POST `/api/v1/attendance/check-in`
-  - POST `/api/v1/attendance/check-out`
-  - GET `/api/v1/attendance/history`
-
-These endpoints are implemented using a repository-service-controller pattern:
-- `Repositories/*` handle DB access
-- `Services/*` contain business logic
-- `Controllers/*` expose the API routes
-
-The code uses DTOs located in `Dtos/` for input/output.
 
 ---
 
@@ -179,6 +136,9 @@ The code uses DTOs located in `Dtos/` for input/output.
 ## Useful Commands
 
 ```pwsh
+#Compose the infrastructure
+docker-compose -f infra.yml up --build --env-file default.env
+
 # Restore, build, run
 dotnet restore EmployeeApi.csproj
 dotnet build EmployeeApi.csproj
@@ -191,10 +151,6 @@ dotnet ef database update --project EmployeeApi.csproj
 # Run test curl example
 curl -X GET http://localhost:5000/api/v1/requests
 ```
-
----
-
-If you'd like, I can add a docker-compose and a small convenience script to automatically create the database and schema, apply migrations, and run the API. Would you like that? 
 
 ---
 
