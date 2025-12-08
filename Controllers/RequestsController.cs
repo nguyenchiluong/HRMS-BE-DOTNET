@@ -1,11 +1,14 @@
 using EmployeeApi.Dtos;
+using EmployeeApi.Extensions;
 using EmployeeApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeApi.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize]
 public class RequestsController : ControllerBase
 {
     private readonly IRequestService _requestService;
@@ -32,12 +35,14 @@ public class RequestsController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication
-            // For now, using employee_id from query or default to 1
-            var currentEmployeeId = employee_id ?? 1;
+            // Get current user's employee ID from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
+            
+            // Managers/Admins can filter by employee_id, regular employees see only their own
+            var filterEmployeeId = User.IsManagerOrAdmin() ? employee_id : currentEmployeeId;
 
             var result = await _requestService.GetRequestsAsync(
-                currentEmployeeId,
+                filterEmployeeId,
                 status?.ToUpper(),
                 request_type?.ToUpper(),
                 date_from,
@@ -90,8 +95,8 @@ public class RequestsController : ControllerBase
                 return BadRequest(new { error = "Bad Request", message = "Invalid input data", details = ModelState });
             }
 
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
 
             var request = await _requestService.CreateRequestAsync(dto, currentEmployeeId);
 
@@ -120,8 +125,8 @@ public class RequestsController : ControllerBase
                 return BadRequest(new { error = "Bad Request", message = "Invalid input data", details = ModelState });
             }
 
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
 
             var request = await _requestService.UpdateRequestAsync(id, dto, currentEmployeeId);
 
@@ -150,8 +155,8 @@ public class RequestsController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
 
             var result = await _requestService.CancelRequestAsync(id, currentEmployeeId);
 
@@ -180,8 +185,13 @@ public class RequestsController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication and verify role
-            var currentEmployeeId = 2; // Default manager/admin ID for now
+            // Get current user's employee ID from JWT token and verify role
+            if (!User.IsManagerOrAdmin())
+            {
+                return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can approve requests" });
+            }
+            
+            var currentEmployeeId = User.GetEmployeeId();
 
             var request = await _requestService.ApproveRequestAsync(id, currentEmployeeId, dto?.Comment);
 
@@ -211,8 +221,13 @@ public class RequestsController : ControllerBase
                 return BadRequest(new { error = "Bad Request", message = "Rejection reason is required and must be at least 10 characters", details = ModelState });
             }
 
-            // TODO: Get current user's employee ID from authentication and verify role
-            var currentEmployeeId = 2; // Default manager/admin ID for now
+            // Get current user's employee ID from JWT token and verify role
+            if (!User.IsManagerOrAdmin())
+            {
+                return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can reject requests" });
+            }
+            
+            var currentEmployeeId = User.GetEmployeeId();
 
             var request = await _requestService.RejectRequestAsync(id, currentEmployeeId, dto.Reason);
 

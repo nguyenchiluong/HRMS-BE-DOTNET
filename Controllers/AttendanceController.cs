@@ -1,11 +1,14 @@
 using EmployeeApi.Dtos;
+using EmployeeApi.Extensions;
 using EmployeeApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeApi.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize]
 public class AttendanceController : ControllerBase
 {
     private readonly IAttendanceService _attendanceService;
@@ -25,8 +28,8 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
 
             var result = await _attendanceService.CheckInAsync(currentEmployeeId, dto?.Location);
 
@@ -51,8 +54,8 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
 
             var result = await _attendanceService.CheckOutAsync(currentEmployeeId);
 
@@ -82,12 +85,14 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID and role from authentication
-            // For now, if employee_id is not provided, default to current user (employee_id = 1)
-            var currentEmployeeId = employee_id ?? 1;
+            // Get current user's employee ID and role from JWT token
+            var currentEmployeeId = User.GetEmployeeId();
+            
+            // Managers/Admins can filter by employee_id, regular employees see only their own
+            var filterEmployeeId = User.IsManagerOrAdmin() ? employee_id : currentEmployeeId;
 
             var result = await _attendanceService.GetAttendanceHistoryAsync(
-                currentEmployeeId,
+                filterEmployeeId,
                 date_from,
                 date_to,
                 page,
