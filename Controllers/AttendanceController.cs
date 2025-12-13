@@ -12,11 +12,16 @@ namespace EmployeeApi.Controllers;
 public class AttendanceController : ControllerBase
 {
     private readonly IAttendanceService _attendanceService;
+    private readonly IUserContextService _userContextService;
     private readonly ILogger<AttendanceController> _logger;
 
-    public AttendanceController(IAttendanceService attendanceService, ILogger<AttendanceController> logger)
+    public AttendanceController(
+        IAttendanceService attendanceService,
+        IUserContextService userContextService, 
+        ILogger<AttendanceController> logger)
     {
         _attendanceService = attendanceService;
+        _userContextService = userContextService;
         _logger = logger;
     }
 
@@ -28,8 +33,8 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // Get current user's employee ID from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var result = await _attendanceService.CheckInAsync(currentEmployeeId, dto?.Location);
 
@@ -54,8 +59,8 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // Get current user's employee ID from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var result = await _attendanceService.CheckOutAsync(currentEmployeeId);
 
@@ -86,10 +91,13 @@ public class AttendanceController : ControllerBase
         try
         {
             // Get current user's employee ID and role from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+            var userRole = _userContextService.GetRoleFromClaims(User);
             
             // Managers/Admins can filter by employee_id, regular employees see only their own
-            var filterEmployeeId = User.IsManagerOrAdmin() ? employee_id : currentEmployeeId;
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+            var filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
 
             var result = await _attendanceService.GetAttendanceHistoryAsync(
                 filterEmployeeId,

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using EmployeeApi.Models;
+using EmployeeApi.Models.Enums;
 
 namespace EmployeeApi.Data;
 
@@ -14,6 +15,15 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Configure enum to string conversions
+        modelBuilder.Entity<Request>()
+            .Property(r => r.RequestType)
+            .HasConversion<string>();
+
+        modelBuilder.Entity<Request>()
+            .Property(r => r.Status)
+            .HasConversion<string>();
 
         // Configure Request entity
         modelBuilder.Entity<Request>()

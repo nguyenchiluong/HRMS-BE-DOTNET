@@ -31,4 +31,7 @@ public class EmployeeRepository : IEmployeeRepository
 
     public Task<bool> ExistsByEmailAsync(string email) =>
         _db.Employees.AnyAsync(e => e.Email == email);
+
+    public async Task<Employee?> GetByEmailAsync(string email) =>
+        await _db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Email == email);
 }

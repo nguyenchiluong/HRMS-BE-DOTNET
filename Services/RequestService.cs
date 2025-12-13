@@ -1,6 +1,8 @@
 using EmployeeApi.Dtos;
 using EmployeeApi.Models;
+using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
+using EmployeeApi.Helpers;
 using System.Text.Json;
 
 namespace EmployeeApi.Services;
@@ -59,13 +61,13 @@ public class RequestService : IRequestService
     {
         var request = new Request
         {
-            RequestType = dto.RequestType,
+            RequestType = EnumHelper.ParseRequestType(dto.RequestType),
             RequesterEmployeeId = requesterEmployeeId,
             EffectiveFrom = dto.EffectiveFrom,
             EffectiveTo = dto.EffectiveTo,
             Reason = dto.Reason,
             Payload = dto.Payload.HasValue ? JsonSerializer.Serialize(dto.Payload.Value) : null,
-            Status = "PENDING",
+            Status = RequestStatus.Pending,
             RequestedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -88,7 +90,7 @@ public class RequestService : IRequestService
             throw new UnauthorizedAccessException("You can only update your own requests");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be updated");
         }
@@ -130,12 +132,12 @@ public class RequestService : IRequestService
             throw new UnauthorizedAccessException("You can only cancel your own requests");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be cancelled");
         }
 
-        request.Status = "CANCELLED";
+        request.Status = RequestStatus.Cancelled;
         await _requestRepository.UpdateRequestAsync(request);
         return true;
     }
@@ -148,12 +150,12 @@ public class RequestService : IRequestService
             throw new Exception("Request not found");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be approved");
         }
 
-        request.Status = "APPROVED";
+        request.Status = RequestStatus.Approved;
         request.ApproverEmployeeId = approverEmployeeId;
         request.ApprovalComment = comment;
 
@@ -169,12 +171,12 @@ public class RequestService : IRequestService
             throw new Exception("Request not found");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be rejected");
         }
 
-        request.Status = "REJECTED";
+        request.Status = RequestStatus.Rejected;
         request.ApproverEmployeeId = approverEmployeeId;
         request.RejectionReason = reason;
 
@@ -211,10 +213,10 @@ public class RequestService : IRequestService
         return new RequestDto
         {
             Id = request.Id,
-            RequestType = request.RequestType,
+            RequestType = request.RequestType.ToApiString(),
             RequesterEmployeeId = request.RequesterEmployeeId,
             ApproverEmployeeId = request.ApproverEmployeeId,
-            Status = request.Status,
+            Status = request.Status.ToApiString(),
             RequestedAt = request.RequestedAt,
             EffectiveFrom = request.EffectiveFrom,
             EffectiveTo = request.EffectiveTo,
@@ -229,10 +231,10 @@ public class RequestService : IRequestService
         return new RequestDetailsDto
         {
             Id = request.Id,
-            RequestType = request.RequestType,
+            RequestType = request.RequestType.ToApiString(),
             RequesterEmployeeId = request.RequesterEmployeeId,
             ApproverEmployeeId = request.ApproverEmployeeId,
-            Status = request.Status,
+            Status = request.Status.ToApiString(),
             RequestedAt = request.RequestedAt,
             EffectiveFrom = request.EffectiveFrom,
             EffectiveTo = request.EffectiveTo,

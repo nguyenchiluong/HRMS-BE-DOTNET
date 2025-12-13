@@ -1,5 +1,7 @@
 using EmployeeApi.Data;
 using EmployeeApi.Models;
+using EmployeeApi.Models.Enums;
+using EmployeeApi.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace EmployeeApi.Repositories;
@@ -34,12 +36,14 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(status))
         {
-            query = query.Where(r => r.Status == status);
+            var statusEnum = EnumHelper.ParseRequestStatus(status);
+            query = query.Where(r => r.Status == statusEnum);
         }
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         if (dateFrom.HasValue)
@@ -75,12 +79,14 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(status))
         {
-            query = query.Where(r => r.Status == status);
+            var statusEnum = EnumHelper.ParseRequestStatus(status);
+            query = query.Where(r => r.Status == statusEnum);
         }
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         if (dateFrom.HasValue)
@@ -154,7 +160,8 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         var summary = await query
@@ -162,7 +169,7 @@ public class RequestRepository : IRequestRepository
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        return summary.ToDictionary(s => s.Status.ToLower(), s => s.Count);
+        return summary.ToDictionary(s => s.Status.ToString().ToLower(), s => s.Count);
     }
 
     public async Task<Dictionary<string, int>> GetRequestsSummaryByTypeAsync(
@@ -187,7 +194,8 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         var summary = await query
@@ -195,6 +203,6 @@ public class RequestRepository : IRequestRepository
             .Select(g => new { Type = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        return summary.ToDictionary(s => s.Type, s => s.Count);
+        return summary.ToDictionary(s => s.Type.ToApiString(), s => s.Count);
     }
 }

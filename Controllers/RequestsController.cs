@@ -12,11 +12,16 @@ namespace EmployeeApi.Controllers;
 public class RequestsController : ControllerBase
 {
     private readonly IRequestService _requestService;
+    private readonly IUserContextService _userContextService;
     private readonly ILogger<RequestsController> _logger;
 
-    public RequestsController(IRequestService requestService, ILogger<RequestsController> logger)
+    public RequestsController(
+        IRequestService requestService, 
+        IUserContextService userContextService,
+        ILogger<RequestsController> logger)
     {
         _requestService = requestService;
+        _userContextService = userContextService;
         _logger = logger;
     }
 
@@ -35,11 +40,14 @@ public class RequestsController : ControllerBase
     {
         try
         {
-            // Get current user's employee ID from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+            var userRole = _userContextService.GetRoleFromClaims(User);
             
             // Managers/Admins can filter by employee_id, regular employees see only their own
-            var filterEmployeeId = User.IsManagerOrAdmin() ? employee_id : currentEmployeeId;
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+            var filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
 
             var result = await _requestService.GetRequestsAsync(
                 filterEmployeeId,
@@ -95,8 +103,8 @@ public class RequestsController : ControllerBase
                 return BadRequest(new { error = "Bad Request", message = "Invalid input data", details = ModelState });
             }
 
-            // Get current user's employee ID from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var request = await _requestService.CreateRequestAsync(dto, currentEmployeeId);
 
@@ -125,8 +133,8 @@ public class RequestsController : ControllerBase
                 return BadRequest(new { error = "Bad Request", message = "Invalid input data", details = ModelState });
             }
 
-            // Get current user's employee ID from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var request = await _requestService.UpdateRequestAsync(id, dto, currentEmployeeId);
 
@@ -155,8 +163,8 @@ public class RequestsController : ControllerBase
     {
         try
         {
-            // Get current user's employee ID from JWT token
-            var currentEmployeeId = User.GetEmployeeId();
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var result = await _requestService.CancelRequestAsync(id, currentEmployeeId);
 
@@ -186,12 +194,16 @@ public class RequestsController : ControllerBase
         try
         {
             // Get current user's employee ID from JWT token and verify role
-            if (!User.IsManagerOrAdmin())
+            var userRole = _userContextService.GetRoleFromClaims(User);
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+            
+            if (!isManagerOrAdmin)
             {
                 return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can approve requests" });
             }
             
-            var currentEmployeeId = User.GetEmployeeId();
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var request = await _requestService.ApproveRequestAsync(id, currentEmployeeId, dto?.Comment);
 
@@ -222,12 +234,16 @@ public class RequestsController : ControllerBase
             }
 
             // Get current user's employee ID from JWT token and verify role
-            if (!User.IsManagerOrAdmin())
+            var userRole = _userContextService.GetRoleFromClaims(User);
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+            
+            if (!isManagerOrAdmin)
             {
                 return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can reject requests" });
             }
             
-            var currentEmployeeId = User.GetEmployeeId();
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var request = await _requestService.RejectRequestAsync(id, currentEmployeeId, dto.Reason);
 
