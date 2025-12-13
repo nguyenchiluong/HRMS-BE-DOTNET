@@ -6,10 +6,10 @@ namespace EmployeeApi.Models;
 public class AttendanceRecord
 {
     [Key]
-    public int Id { get; set; }
+    public long Id { get; set; }
 
     [Required]
-    public int EmployeeId { get; set; }
+    public long EmployeeId { get; set; }
 
     [ForeignKey(nameof(EmployeeId))]
     public Employee? Employee { get; set; }

@@ -13,12 +13,12 @@ public class Request
     public RequestType RequestType { get; set; }
 
     [Required]
-    public int RequesterEmployeeId { get; set; }
+    public long RequesterEmployeeId { get; set; }
 
     [ForeignKey(nameof(RequesterEmployeeId))]
     public Employee? Requester { get; set; }
 
-    public int? ApproverEmployeeId { get; set; }
+    public long? ApproverEmployeeId { get; set; }
 
     [ForeignKey(nameof(ApproverEmployeeId))]
     public Employee? Approver { get; set; }
@@ -36,7 +36,7 @@ public class Request
     [Required]
     public string Reason { get; set; } = default!;
 
-    [Column(TypeName = "json")]
+    [Column(TypeName = "jsonb")]
     public string? Payload { get; set; } // JSON string for type-specific data
 
     [MaxLength(500)]

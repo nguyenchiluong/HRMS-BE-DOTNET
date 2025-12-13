@@ -6,7 +6,7 @@ namespace EmployeeApi.Services;
 public interface IRequestService
 {
     Task<PaginatedResponseDto<RequestDto>> GetRequestsAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -16,18 +16,18 @@ public interface IRequestService
 
     Task<RequestDetailsDto?> GetRequestByIdAsync(int id);
 
-    Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, int requesterEmployeeId);
+    Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId);
 
-    Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, int requesterEmployeeId);
+    Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, long requesterEmployeeId);
 
-    Task<bool> CancelRequestAsync(int id, int requesterEmployeeId);
+    Task<bool> CancelRequestAsync(int id, long requesterEmployeeId);
 
-    Task<RequestDto> ApproveRequestAsync(int id, int approverEmployeeId, string? comment);
+    Task<RequestDto> ApproveRequestAsync(int id, long approverEmployeeId, string? comment);
 
-    Task<RequestDto> RejectRequestAsync(int id, int approverEmployeeId, string reason);
+    Task<RequestDto> RejectRequestAsync(int id, long approverEmployeeId, string reason);
 
     Task<RequestsSummaryDto> GetRequestsSummaryAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null);
 }

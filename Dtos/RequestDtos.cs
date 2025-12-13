@@ -35,8 +35,8 @@ public class RequestDto
 {
     public int Id { get; set; }
     public string RequestType { get; set; } = default!;
-    public int RequesterEmployeeId { get; set; }
-    public int? ApproverEmployeeId { get; set; }
+    public long RequesterEmployeeId { get; set; }
+    public long? ApproverEmployeeId { get; set; }
     public string Status { get; set; } = default!;
     public DateTime RequestedAt { get; set; }
     public DateTime? EffectiveFrom { get; set; }
@@ -50,8 +50,8 @@ public class RequestDetailsDto
 {
     public int Id { get; set; }
     public string RequestType { get; set; } = default!;
-    public int RequesterEmployeeId { get; set; }
-    public int? ApproverEmployeeId { get; set; }
+    public long RequesterEmployeeId { get; set; }
+    public long? ApproverEmployeeId { get; set; }
     public string Status { get; set; } = default!;
     public DateTime RequestedAt { get; set; }
     public DateTime? EffectiveFrom { get; set; }
@@ -68,7 +68,7 @@ public class RequestDetailsDto
 
 public class EmployeeSummaryDto
 {
-    public int Id { get; set; }
+    public long Id { get; set; }
     public string Name { get; set; } = default!;
     public string? Email { get; set; }
     public string? Department { get; set; }
@@ -128,8 +128,8 @@ public class CheckOutResponseDto
 
 public class AttendanceRecordDto
 {
-    public int Id { get; set; }
-    public int EmployeeId { get; set; }
+    public long Id { get; set; }
+    public long EmployeeId { get; set; }
     public DateTime Date { get; set; }
     public DateTime CheckInTime { get; set; }
     public DateTime? CheckOutTime { get; set; }

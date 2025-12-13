@@ -34,7 +34,7 @@ public class RequestsController : ControllerBase
         [FromQuery] int limit = 20,
         [FromQuery] string? status = null,
         [FromQuery] string? request_type = null,
-        [FromQuery] int? employee_id = null,
+        [FromQuery] long? employee_id = null,
         [FromQuery] DateTime? date_from = null,
         [FromQuery] DateTime? date_to = null)
     {
@@ -47,7 +47,7 @@ public class RequestsController : ControllerBase
             // Managers/Admins can filter by employee_id, regular employees see only their own
             var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
                                 || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-            var filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
+            long? filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
 
             var result = await _requestService.GetRequestsAsync(
                 filterEmployeeId,

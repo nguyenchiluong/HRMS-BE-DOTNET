@@ -16,7 +16,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<List<Request>> GetRequestsAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -64,7 +64,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<int> GetRequestsCountAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -139,7 +139,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<Dictionary<string, int>> GetRequestsSummaryByStatusAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null)
     {
@@ -173,7 +173,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<Dictionary<string, int>> GetRequestsSummaryByTypeAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null)
     {

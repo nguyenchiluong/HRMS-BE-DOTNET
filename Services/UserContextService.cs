@@ -5,7 +5,7 @@ namespace EmployeeApi.Services;
 
 public interface IUserContextService
 {
-    Task<int> GetEmployeeIdFromClaimsAsync(ClaimsPrincipal principal);
+    Task<long> GetEmployeeIdFromClaimsAsync(ClaimsPrincipal principal);
     string GetEmailFromClaims(ClaimsPrincipal principal);
     string GetRoleFromClaims(ClaimsPrincipal principal);
 }
@@ -19,13 +19,13 @@ public class UserContextService : IUserContextService
         _employeeRepository = employeeRepository;
     }
 
-    public async Task<int> GetEmployeeIdFromClaimsAsync(ClaimsPrincipal principal)
+    public async Task<long> GetEmployeeIdFromClaimsAsync(ClaimsPrincipal principal)
     {
         // First, try to get employee_id directly from token if it exists
         var employeeIdClaim = principal.FindFirst("empId")?.Value 
                            ?? principal.FindFirst("employee_id")?.Value;
 
-        if (!string.IsNullOrEmpty(employeeIdClaim) && int.TryParse(employeeIdClaim, out var employeeId))
+        if (!string.IsNullOrEmpty(employeeIdClaim) && long.TryParse(employeeIdClaim, out var employeeId))
         {
             return employeeId;
         }

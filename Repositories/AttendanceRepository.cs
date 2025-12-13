@@ -13,7 +13,7 @@ public class AttendanceRepository : IAttendanceRepository
         _context = context;
     }
 
-    public async Task<AttendanceRecord?> GetTodayAttendanceAsync(int employeeId)
+    public async Task<AttendanceRecord?> GetTodayAttendanceAsync(long employeeId)
     {
         var today = DateTime.UtcNow.Date;
         return await _context.AttendanceRecords
@@ -35,7 +35,7 @@ public class AttendanceRepository : IAttendanceRepository
     }
 
     public async Task<List<AttendanceRecord>> GetAttendanceHistoryAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,
@@ -69,7 +69,7 @@ public class AttendanceRepository : IAttendanceRepository
     }
 
     public async Task<int> GetAttendanceCountAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null)
     {
@@ -93,7 +93,7 @@ public class AttendanceRepository : IAttendanceRepository
         return await query.CountAsync();
     }
 
-    public async Task<AttendanceRecord?> GetAttendanceByIdAsync(int id)
+    public async Task<AttendanceRecord?> GetAttendanceByIdAsync(long id)
     {
         return await _context.AttendanceRecords
             .Include(a => a.Employee)

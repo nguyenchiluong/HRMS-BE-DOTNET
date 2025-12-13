@@ -17,7 +17,7 @@ public class RequestService : IRequestService
     }
 
     public async Task<PaginatedResponseDto<RequestDto>> GetRequestsAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -57,7 +57,7 @@ public class RequestService : IRequestService
         return MapToRequestDetailsDto(request);
     }
 
-    public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, int requesterEmployeeId)
+    public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId)
     {
         var request = new Request
         {
@@ -77,7 +77,7 @@ public class RequestService : IRequestService
         return MapToRequestDto(createdRequest);
     }
 
-    public async Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, int requesterEmployeeId)
+    public async Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, long requesterEmployeeId)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -119,7 +119,7 @@ public class RequestService : IRequestService
         return MapToRequestDto(updatedRequest);
     }
 
-    public async Task<bool> CancelRequestAsync(int id, int requesterEmployeeId)
+    public async Task<bool> CancelRequestAsync(int id, long requesterEmployeeId)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -142,7 +142,7 @@ public class RequestService : IRequestService
         return true;
     }
 
-    public async Task<RequestDto> ApproveRequestAsync(int id, int approverEmployeeId, string? comment)
+    public async Task<RequestDto> ApproveRequestAsync(int id, long approverEmployeeId, string? comment)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -163,7 +163,7 @@ public class RequestService : IRequestService
         return MapToRequestDto(updatedRequest);
     }
 
-    public async Task<RequestDto> RejectRequestAsync(int id, int approverEmployeeId, string reason)
+    public async Task<RequestDto> RejectRequestAsync(int id, long approverEmployeeId, string reason)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -185,7 +185,7 @@ public class RequestService : IRequestService
     }
 
     public async Task<RequestsSummaryDto> GetRequestsSummaryAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null)
     {
@@ -244,16 +244,16 @@ public class RequestService : IRequestService
             Requester = request.Requester != null ? new EmployeeSummaryDto
             {
                 Id = request.Requester.Id,
-                Name = request.Requester.FullName,
+                Name = $"{request.Requester.FirstName} {request.Requester.LastName}",
                 Email = request.Requester.Email,
-                Department = request.Requester.Department
+                Department = request.Requester.Department?.Name
             } : null,
             Approver = request.Approver != null ? new EmployeeSummaryDto
             {
                 Id = request.Approver.Id,
-                Name = request.Approver.FullName,
+                Name = $"{request.Approver.FirstName} {request.Approver.LastName}",
                 Email = request.Approver.Email,
-                Department = request.Approver.Department
+                Department = request.Approver.Department?.Name
             } : null,
             Payload = !string.IsNullOrEmpty(request.Payload) 
                 ? JsonSerializer.Deserialize<JsonElement>(request.Payload) 
