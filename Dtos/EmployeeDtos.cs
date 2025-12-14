@@ -1,27 +1,32 @@
 namespace EmployeeApi.Dtos;
+
 public record EmployeeDto(
-    int Id, 
-    string FullName, 
-    string Email,   
-    string Position, 
-    DateTime StartDate,
-    string Status, 
-    string JobLevel, 
-    string Department,
-    string EmploymentType, 
-    string TimeType, 
-    DateTime LastUpdated
+    long Id,
+    string FirstName,
+    string LastName,
+    string? Email,
+    string? Phone,
+    DateTime? HireDate,
+    DateTime? BirthDate,
+    string? PositionTitle,
+    string? DepartmentName,
+    bool IsActive,
+    string? JobStatus,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
 );
 
 public class CreateEmployeeDto
 {
-    public string FullName { get; set; } = default!;
-    public string Email { get; set; } = default!;
-    public string Position { get; set; } = default!;
-    public DateTime StartDate { get; set; }
-    public string Status { get; set; } = "Pending";
-    public string JobLevel { get; set; } = default!;
-    public string Department { get; set; } = default!;
-    public string EmploymentType { get; set; } = default!;
-    public string TimeType { get; set; } = default!;
+    public string FirstName { get; set; } = default!;
+    public string LastName { get; set; } = default!;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public DateTime? HireDate { get; set; }
+    public DateTime? BirthDate { get; set; }
+    public long? PositionId { get; set; }
+    public long? DepartmentId { get; set; }
+    public long? ManagerId { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? JobStatus { get; set; }
 }

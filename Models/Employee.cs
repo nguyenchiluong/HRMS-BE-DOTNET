@@ -1,16 +1,31 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace EmployeeApi.Models;
 
 public class Employee
 {
-    public int Id { get; set; } // Auto-generated Employee ID
-    public string FullName { get; set; } = default!;
-    public string Email { get; set; } = default!;
-    public string Position { get; set; } = default!;
-    public DateTime StartDate { get; set; }
-    public string Status { get; set; } = "Pending"; // Pending/Active
-    public string JobLevel { get; set; } = default!;
-    public string Department { get; set; } = default!;
-    public string EmploymentType { get; set; } = default!; // e.g., Permanent
-    public string TimeType { get; set; } = default!; // e.g., Remote
-    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+    public long Id { get; set; }
+    public string? EmployeeNumber { get; set; }
+    [Required]
+    public string FirstName { get; set; } = default!;
+    [Required]
+    public string LastName { get; set; } = default!;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public DateTime? HireDate { get; set; }
+    public DateTime? BirthDate { get; set; }
+
+    public long? PositionId { get; set; }
+    public Position? Position { get; set; }
+
+    public long? DepartmentId { get; set; }
+    public Department? Department { get; set; }
+
+    public long? ManagerId { get; set; }
+    public Employee? Manager { get; set; }
+
+    public bool IsActive { get; set; } = true;
+    public string? JobStatus { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

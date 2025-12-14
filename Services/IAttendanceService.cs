@@ -4,12 +4,12 @@ namespace EmployeeApi.Services;
 
 public interface IAttendanceService
 {
-    Task<CheckInResponseDto> CheckInAsync(int employeeId, LocationDto? location);
+    Task<CheckInResponseDto> CheckInAsync(long employeeId, LocationDto? location);
 
-    Task<CheckOutResponseDto> CheckOutAsync(int employeeId);
+    Task<CheckOutResponseDto> CheckOutAsync(long employeeId);
 
     Task<PaginatedResponseDto<AttendanceRecordDto>> GetAttendanceHistoryAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,

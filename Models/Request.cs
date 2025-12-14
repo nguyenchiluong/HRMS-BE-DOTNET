@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using EmployeeApi.Models.Enums;
 
 namespace EmployeeApi.Models;
 
@@ -9,23 +10,21 @@ public class Request
     public int Id { get; set; }
 
     [Required]
-    [MaxLength(50)]
-    public string RequestType { get; set; } = default!; // LEAVE, SICK_LEAVE, WFH, TIMESHEET, PROFILE_UPDATE, ID_UPDATE
+    public RequestType RequestType { get; set; }
 
     [Required]
-    public int RequesterEmployeeId { get; set; }
+    public long RequesterEmployeeId { get; set; }
 
     [ForeignKey(nameof(RequesterEmployeeId))]
     public Employee? Requester { get; set; }
 
-    public int? ApproverEmployeeId { get; set; }
+    public long? ApproverEmployeeId { get; set; }
 
     [ForeignKey(nameof(ApproverEmployeeId))]
     public Employee? Approver { get; set; }
 
     [Required]
-    [MaxLength(20)]
-    public string Status { get; set; } = "PENDING"; // PENDING, APPROVED, REJECTED, CANCELLED
+    public RequestStatus Status { get; set; } = RequestStatus.Pending;
 
     [Required]
     public DateTime RequestedAt { get; set; } = DateTime.UtcNow;
@@ -37,7 +36,7 @@ public class Request
     [Required]
     public string Reason { get; set; } = default!;
 
-    [Column(TypeName = "json")]
+    [Column(TypeName = "jsonb")]
     public string? Payload { get; set; } // JSON string for type-specific data
 
     [MaxLength(500)]

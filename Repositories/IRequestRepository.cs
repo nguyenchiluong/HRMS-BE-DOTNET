@@ -5,7 +5,7 @@ namespace EmployeeApi.Repositories;
 public interface IRequestRepository
 {
     Task<List<Request>> GetRequestsAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -14,7 +14,7 @@ public interface IRequestRepository
         int limit = 20);
 
     Task<int> GetRequestsCountAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -29,12 +29,12 @@ public interface IRequestRepository
     Task<bool> DeleteRequestAsync(int id);
 
     Task<Dictionary<string, int>> GetRequestsSummaryByStatusAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null);
 
     Task<Dictionary<string, int>> GetRequestsSummaryByTypeAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null);
 }

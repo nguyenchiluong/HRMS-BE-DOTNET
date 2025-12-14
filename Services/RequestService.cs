@@ -1,6 +1,8 @@
 using EmployeeApi.Dtos;
 using EmployeeApi.Models;
+using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
+using EmployeeApi.Helpers;
 using System.Text.Json;
 
 namespace EmployeeApi.Services;
@@ -15,7 +17,7 @@ public class RequestService : IRequestService
     }
 
     public async Task<PaginatedResponseDto<RequestDto>> GetRequestsAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -55,17 +57,17 @@ public class RequestService : IRequestService
         return MapToRequestDetailsDto(request);
     }
 
-    public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, int requesterEmployeeId)
+    public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId)
     {
         var request = new Request
         {
-            RequestType = dto.RequestType,
+            RequestType = EnumHelper.ParseRequestType(dto.RequestType),
             RequesterEmployeeId = requesterEmployeeId,
             EffectiveFrom = dto.EffectiveFrom,
             EffectiveTo = dto.EffectiveTo,
             Reason = dto.Reason,
             Payload = dto.Payload.HasValue ? JsonSerializer.Serialize(dto.Payload.Value) : null,
-            Status = "PENDING",
+            Status = RequestStatus.Pending,
             RequestedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
@@ -75,7 +77,7 @@ public class RequestService : IRequestService
         return MapToRequestDto(createdRequest);
     }
 
-    public async Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, int requesterEmployeeId)
+    public async Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, long requesterEmployeeId)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -88,7 +90,7 @@ public class RequestService : IRequestService
             throw new UnauthorizedAccessException("You can only update your own requests");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be updated");
         }
@@ -117,7 +119,7 @@ public class RequestService : IRequestService
         return MapToRequestDto(updatedRequest);
     }
 
-    public async Task<bool> CancelRequestAsync(int id, int requesterEmployeeId)
+    public async Task<bool> CancelRequestAsync(int id, long requesterEmployeeId)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -130,17 +132,17 @@ public class RequestService : IRequestService
             throw new UnauthorizedAccessException("You can only cancel your own requests");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be cancelled");
         }
 
-        request.Status = "CANCELLED";
+        request.Status = RequestStatus.Cancelled;
         await _requestRepository.UpdateRequestAsync(request);
         return true;
     }
 
-    public async Task<RequestDto> ApproveRequestAsync(int id, int approverEmployeeId, string? comment)
+    public async Task<RequestDto> ApproveRequestAsync(int id, long approverEmployeeId, string? comment)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -148,12 +150,12 @@ public class RequestService : IRequestService
             throw new Exception("Request not found");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be approved");
         }
 
-        request.Status = "APPROVED";
+        request.Status = RequestStatus.Approved;
         request.ApproverEmployeeId = approverEmployeeId;
         request.ApprovalComment = comment;
 
@@ -161,7 +163,7 @@ public class RequestService : IRequestService
         return MapToRequestDto(updatedRequest);
     }
 
-    public async Task<RequestDto> RejectRequestAsync(int id, int approverEmployeeId, string reason)
+    public async Task<RequestDto> RejectRequestAsync(int id, long approverEmployeeId, string reason)
     {
         var request = await _requestRepository.GetRequestByIdAsync(id);
         if (request == null)
@@ -169,12 +171,12 @@ public class RequestService : IRequestService
             throw new Exception("Request not found");
         }
 
-        if (request.Status != "PENDING")
+        if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be rejected");
         }
 
-        request.Status = "REJECTED";
+        request.Status = RequestStatus.Rejected;
         request.ApproverEmployeeId = approverEmployeeId;
         request.RejectionReason = reason;
 
@@ -183,7 +185,7 @@ public class RequestService : IRequestService
     }
 
     public async Task<RequestsSummaryDto> GetRequestsSummaryAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null)
     {
@@ -211,10 +213,10 @@ public class RequestService : IRequestService
         return new RequestDto
         {
             Id = request.Id,
-            RequestType = request.RequestType,
+            RequestType = request.RequestType.ToApiString(),
             RequesterEmployeeId = request.RequesterEmployeeId,
             ApproverEmployeeId = request.ApproverEmployeeId,
-            Status = request.Status,
+            Status = request.Status.ToApiString(),
             RequestedAt = request.RequestedAt,
             EffectiveFrom = request.EffectiveFrom,
             EffectiveTo = request.EffectiveTo,
@@ -229,10 +231,10 @@ public class RequestService : IRequestService
         return new RequestDetailsDto
         {
             Id = request.Id,
-            RequestType = request.RequestType,
+            RequestType = request.RequestType.ToApiString(),
             RequesterEmployeeId = request.RequesterEmployeeId,
             ApproverEmployeeId = request.ApproverEmployeeId,
-            Status = request.Status,
+            Status = request.Status.ToApiString(),
             RequestedAt = request.RequestedAt,
             EffectiveFrom = request.EffectiveFrom,
             EffectiveTo = request.EffectiveTo,
@@ -242,16 +244,16 @@ public class RequestService : IRequestService
             Requester = request.Requester != null ? new EmployeeSummaryDto
             {
                 Id = request.Requester.Id,
-                Name = request.Requester.FullName,
+                Name = $"{request.Requester.FirstName} {request.Requester.LastName}",
                 Email = request.Requester.Email,
-                Department = request.Requester.Department
+                Department = request.Requester.Department?.Name
             } : null,
             Approver = request.Approver != null ? new EmployeeSummaryDto
             {
                 Id = request.Approver.Id,
-                Name = request.Approver.FullName,
+                Name = $"{request.Approver.FirstName} {request.Approver.LastName}",
                 Email = request.Approver.Email,
-                Department = request.Approver.Department
+                Department = request.Approver.Department?.Name
             } : null,
             Payload = !string.IsNullOrEmpty(request.Payload) 
                 ? JsonSerializer.Deserialize<JsonElement>(request.Payload) 
