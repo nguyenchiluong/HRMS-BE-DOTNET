@@ -5,6 +5,7 @@ using System.Text;
 using EmployeeApi.Data;
 using EmployeeApi.Repositories;
 using EmployeeApi.Services;
+using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,6 +76,26 @@ builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+
+// RabbitMQ Configuration
+builder.Services.AddSingleton<IConnection>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var factory = new ConnectionFactory
+    {
+        HostName = configuration["RabbitMQ:Host"] ?? "localhost",
+        Port = int.Parse(configuration["RabbitMQ:Port"] ?? "5672"),
+        UserName = configuration["RabbitMQ:Username"] ?? "hrms_user",
+        Password = configuration["RabbitMQ:Password"] ?? "hrms_password",
+        VirtualHost = configuration["RabbitMQ:VirtualHost"] ?? "/",
+        AutomaticRecoveryEnabled = true,
+        NetworkRecoveryInterval = TimeSpan.FromSeconds(10),
+        RequestedHeartbeat = TimeSpan.FromSeconds(60)
+    };
+    return factory.CreateConnectionAsync().GetAwaiter().GetResult();
+});
+
+builder.Services.AddScoped<IMessageProducerService, MessageProducerService>();
 
 //CORS
 

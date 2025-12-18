@@ -4,22 +4,19 @@ services:
     image: postgres:15-alpine
     container_name: hrms-profile-postgres
     restart: unless-stopped
-    env_file:
-      - ./default.env
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: hrms
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dinh100110
       POSTGRES_ROOT_PASSWORD: root_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     networks:
       - hrms-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hrms"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,10 +40,33 @@ services:
       postgres:
         condition: service_healthy
 
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: hrms-profile-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: hrms_user
+      RABBITMQ_DEFAULT_PASS: hrms_password
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - hrms-network
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  rabbitmq_data:
     driver: local
 
 networks:
