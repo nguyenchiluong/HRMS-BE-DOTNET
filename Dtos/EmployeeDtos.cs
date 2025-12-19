@@ -99,6 +99,21 @@ public class NationalIdDto
 }
 
 /// <summary>
+/// Event message for sending onboarding email to new employee
+/// </summary>
+public class SendOnboardingEmailEvent
+{
+    public long EmployeeId { get; set; }
+    public string FullName { get; set; } = default!;
+    public string Email { get; set; } = default!;
+    public string OnboardingUrl { get; set; } = default!;
+    public DateOnly StartDate { get; set; }
+    public string? PositionTitle { get; set; }
+    public string? DepartmentName { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
 /// DTO for new hire to complete their onboarding with personal details
 /// </summary>
 public class OnboardDto

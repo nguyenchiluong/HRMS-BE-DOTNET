@@ -2,6 +2,8 @@ using EmployeeApi.Dtos;
 using EmployeeApi.Models;
 using EmployeeApi.Repositories;
 using EmployeeApi.Data;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace EmployeeApi.Services;
 
@@ -9,11 +11,24 @@ public class EmployeeService : IEmployeeService
 {
     private readonly IEmployeeRepository _repo;
     private readonly AppDbContext _db;
+    private readonly IMessageProducerService _messageProducer;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<EmployeeService> _logger;
 
-    public EmployeeService(IEmployeeRepository repo, AppDbContext db)
+    private const string SEND_EMAIL_QUEUE = "sendEmail";
+
+    public EmployeeService(
+        IEmployeeRepository repo,
+        AppDbContext db,
+        IMessageProducerService messageProducer,
+        IConfiguration configuration,
+        ILogger<EmployeeService> logger)
     {
         _repo = repo;
         _db = db;
+        _messageProducer = messageProducer;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync(string? search = null)
@@ -110,7 +125,47 @@ public class EmployeeService : IEmployeeService
 
         await _repo.AddAsync(entity);
         await _repo.SaveChangesAsync();
+
+        // Publish event to send onboarding email to the new employee
+        await PublishOnboardingEmailEvent(entity, department.Name, position.Title);
+
         return ToDto(entity);
+    }
+
+    /// <summary>
+    /// Publishes an event to send onboarding email to the new employee
+    /// </summary>
+    private async Task PublishOnboardingEmailEvent(Employee employee, string? departmentName, string? positionTitle)
+    {
+        try
+        {
+            var baseUrl = _configuration["Application:BaseUrl"] ?? "http://localhost:5188";
+            var onboardingUrl = $"{baseUrl}/onboarding/{employee.Id}";
+
+            var emailEvent = new SendOnboardingEmailEvent
+            {
+                EmployeeId = employee.Id,
+                FullName = employee.FullName,
+                Email = employee.Email,
+                OnboardingUrl = onboardingUrl,
+                StartDate = employee.StartDate ?? DateOnly.FromDateTime(DateTime.Now),
+                PositionTitle = positionTitle,
+                DepartmentName = departmentName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _messageProducer.PublishMessage(emailEvent, SEND_EMAIL_QUEUE);
+            _logger.LogInformation(
+                "Published onboarding email event for employee {EmployeeId} ({Email})",
+                employee.Id, employee.Email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to publish onboarding email event for employee {EmployeeId}",
+                employee.Id);
+            // Don't throw - email sending failure shouldn't fail the profile creation
+        }
     }
 
     public async Task<EmployeeDto> CompleteOnboardingAsync(long employeeId, OnboardDto input)

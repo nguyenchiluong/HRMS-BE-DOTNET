@@ -13,12 +13,6 @@ public class AppDbContext : DbContext
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<Education> Educations => Set<Education>();
-    public DbSet<BonusPointAccount> BonusPointAccounts => Set<BonusPointAccount>();
-    public DbSet<TransferTransaction> TransferTransactions => Set<TransferTransaction>();
-    public DbSet<RedemptionTransaction> RedemptionTransactions => Set<RedemptionTransaction>();
-    public DbSet<Campaign> Campaigns => Set<Campaign>();
-    public DbSet<CampaignParticipant> CampaignParticipants => Set<CampaignParticipant>();
-    public DbSet<EmployeeActivity> EmployeeActivities => Set<EmployeeActivity>();
     public DbSet<Request> Requests => Set<Request>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
 
@@ -26,20 +20,19 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Map to snake_case table names in public schema
+        // Set default schema to 'dotnet'
+        modelBuilder.HasDefaultSchema("dotnet");
+
+        // Entities in 'dotnet' schema (managed by this service)
         modelBuilder.Entity<Employee>().ToTable("employee");
-        modelBuilder.Entity<Position>().ToTable("position");
-        modelBuilder.Entity<Department>().ToTable("department");
         modelBuilder.Entity<BankAccount>().ToTable("bank_account");
         modelBuilder.Entity<Education>().ToTable("education");
-        modelBuilder.Entity<BonusPointAccount>().ToTable("bonus_point_account");
-        modelBuilder.Entity<TransferTransaction>().ToTable("transfer_transaction");
-        modelBuilder.Entity<RedemptionTransaction>().ToTable("redemption_transaction");
-        modelBuilder.Entity<Campaign>().ToTable("campaign");
-        modelBuilder.Entity<CampaignParticipant>().ToTable("campaign_participant");
-        modelBuilder.Entity<EmployeeActivity>().ToTable("employee_activity");
         modelBuilder.Entity<Request>().ToTable("request");
         modelBuilder.Entity<AttendanceRecord>().ToTable("attendance_record");
+
+        // Entities in 'public' schema (shared/reference data)
+        modelBuilder.Entity<Position>().ToTable("position", "public");
+        modelBuilder.Entity<Department>().ToTable("department", "public");
 
         // Relationships per external schema
         modelBuilder.Entity<Employee>()
@@ -77,66 +70,6 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(ed => ed.EmployeeId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<BonusPointAccount>()
-            .HasOne(bp => bp.Employee)
-            .WithMany()
-            .HasForeignKey(bp => bp.EmployeeId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<TransferTransaction>()
-            .HasOne(t => t.FromAccount)
-            .WithMany()
-            .HasForeignKey(t => t.FromAccountId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<TransferTransaction>()
-            .HasOne(t => t.ToAccount)
-            .WithMany()
-            .HasForeignKey(t => t.ToAccountId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<TransferTransaction>()
-            .HasOne(t => t.InitiatedByEmployee)
-            .WithMany()
-            .HasForeignKey(t => t.InitiatedByEmployeeId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<RedemptionTransaction>()
-            .HasOne(r => r.Account)
-            .WithMany()
-            .HasForeignKey(r => r.AccountId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        modelBuilder.Entity<RedemptionTransaction>()
-            .HasOne(r => r.RedeemedByEmployee)
-            .WithMany()
-            .HasForeignKey(r => r.RedeemedByEmployeeId)
-            .OnDelete(DeleteBehavior.SetNull);
-
-        modelBuilder.Entity<CampaignParticipant>()
-            .HasOne(cp => cp.Campaign)
-            .WithMany()
-            .HasForeignKey(cp => cp.CampaignId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<CampaignParticipant>()
-            .HasOne(cp => cp.Employee)
-            .WithMany()
-            .HasForeignKey(cp => cp.EmployeeId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EmployeeActivity>()
-            .HasOne(a => a.Employee)
-            .WithMany()
-            .HasForeignKey(a => a.EmployeeId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        modelBuilder.Entity<EmployeeActivity>()
-            .HasOne(a => a.Campaign)
-            .WithMany()
-            .HasForeignKey(a => a.CampaignId)
-            .OnDelete(DeleteBehavior.SetNull);
 
         // Configure enum to string conversions
         modelBuilder.Entity<Request>()
@@ -187,18 +120,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<BankAccount>()
             .HasIndex(b => b.AccountNumber)
-            .IsUnique();
-
-        modelBuilder.Entity<BonusPointAccount>()
-            .HasIndex(bp => bp.EmployeeId)
-            .IsUnique();
-
-        modelBuilder.Entity<Campaign>()
-            .HasIndex(c => c.Code)
-            .IsUnique();
-
-        modelBuilder.Entity<CampaignParticipant>()
-            .HasIndex(cp => new { cp.CampaignId, cp.EmployeeId })
             .IsUnique();
     }
 }

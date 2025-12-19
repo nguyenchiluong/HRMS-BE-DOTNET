@@ -67,12 +67,12 @@ public class MessageProducerService : IMessageProducerService, IDisposable
     /// <summary>
     /// Publishes a message to the specified exchange with a routing key
     /// </summary>
-    public void PublishToExchange<T>(T message, string exchangeName, string routingKey)
+    public async Task PublishToExchange<T>(T message, string exchangeName, string routingKey)
     {
         try
         {
             // Declare the exchange (creates it if it doesn't exist)
-            _channel.ExchangeDeclareAsync(
+            await _channel.ExchangeDeclareAsync(
                 exchange: exchangeName,
                 type: ExchangeType.Topic,
                 durable: true,
@@ -90,7 +90,7 @@ public class MessageProducerService : IMessageProducerService, IDisposable
                 Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds())
             };
 
-            _channel.BasicPublishAsync(
+            await _channel.BasicPublishAsync(
                 exchange: exchangeName,
                 routingKey: routingKey,
                 mandatory: false,
@@ -117,10 +117,5 @@ public class MessageProducerService : IMessageProducerService, IDisposable
             _disposed = true;
         }
         GC.SuppressFinalize(this);
-    }
-
-    Task IMessageProducerService.PublishToExchange<T>(T message, string exchangeName, string routingKey)
-    {
-        throw new NotImplementedException();
     }
 }
