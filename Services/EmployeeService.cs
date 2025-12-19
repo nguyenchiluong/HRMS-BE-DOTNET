@@ -123,9 +123,34 @@ public class EmployeeService : IEmployeeService
             throw new InvalidOperationException("Onboarding has already been completed");
 
         // Update personal details
+        employee.FirstName = input.FirstName;
+        employee.LastName = input.LastName;
+        employee.PreferredName = input.PreferredName;
+        employee.Sex = input.Sex;
+        employee.DateOfBirth = input.DateOfBirth;
+        employee.MaritalStatus = input.MaritalStatus;
+        employee.Pronoun = input.Pronoun;
+        employee.PersonalEmail = input.PersonalEmail;
         employee.Phone = input.Phone;
+        employee.Phone2 = input.Phone2;
+
+        // Update address
         employee.PermanentAddress = input.PermanentAddress;
         employee.CurrentAddress = input.CurrentAddress;
+
+        // Update National ID
+        if (input.NationalId != null)
+        {
+            employee.NationalIdCountry = input.NationalId.Country;
+            employee.NationalIdNumber = input.NationalId.Number;
+            employee.NationalIdIssuedDate = input.NationalId.IssuedDate;
+            employee.NationalIdExpirationDate = input.NationalId.ExpirationDate;
+            employee.NationalIdIssuedBy = input.NationalId.IssuedBy;
+        }
+
+        // Update Social Insurance & Tax
+        employee.SocialInsuranceNumber = input.SocialInsuranceNumber;
+        employee.TaxId = input.TaxId;
 
         // Mark onboarding as completed
         employee.Status = "ACTIVE";
@@ -150,6 +175,21 @@ public class EmployeeService : IEmployeeService
             }
         }
 
+        // Add bank account if provided
+        if (input.BankAccount != null &&
+            !string.IsNullOrWhiteSpace(input.BankAccount.BankName) &&
+            !string.IsNullOrWhiteSpace(input.BankAccount.AccountNumber))
+        {
+            var bankAccount = new BankAccount
+            {
+                EmployeeId = employeeId,
+                BankName = input.BankAccount.BankName.Trim(),
+                AccountNumber = input.BankAccount.AccountNumber.Trim(),
+                AccountName = input.BankAccount.AccountName?.Trim()
+            };
+            await _db.BankAccounts.AddAsync(bankAccount);
+        }
+
         await _repo.SaveChangesAsync();
         return ToDto(employee);
     }
@@ -168,8 +208,26 @@ public class EmployeeService : IEmployeeService
         new EmployeeDto(
             e.Id,
             e.FullName,
+            e.FirstName,
+            e.LastName,
+            e.PreferredName,
             e.Email,
+            e.PersonalEmail,
             e.Phone,
+            e.Phone2,
+            e.Sex,
+            e.DateOfBirth,
+            e.MaritalStatus,
+            e.Pronoun,
+            e.PermanentAddress,
+            e.CurrentAddress,
+            e.NationalIdCountry,
+            e.NationalIdNumber,
+            e.NationalIdIssuedDate,
+            e.NationalIdExpirationDate,
+            e.NationalIdIssuedBy,
+            e.SocialInsuranceNumber,
+            e.TaxId,
             e.StartDate,
             e.Position?.Title,
             e.Department?.Name,
@@ -177,8 +235,6 @@ public class EmployeeService : IEmployeeService
             e.EmployeeType,
             e.TimeType,
             e.Status,
-            e.PermanentAddress,
-            e.CurrentAddress,
             e.CreatedAt,
             e.UpdatedAt
         );

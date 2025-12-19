@@ -3,8 +3,26 @@ namespace EmployeeApi.Dtos;
 public record EmployeeDto(
     long Id,
     string FullName,
+    string? FirstName,
+    string? LastName,
+    string? PreferredName,
     string Email,
+    string? PersonalEmail,
     string? Phone,
+    string? Phone2,
+    string? Sex,
+    DateOnly? DateOfBirth,
+    string? MaritalStatus,
+    string? Pronoun,
+    string? PermanentAddress,
+    string? CurrentAddress,
+    string? NationalIdCountry,
+    string? NationalIdNumber,
+    DateOnly? NationalIdIssuedDate,
+    DateOnly? NationalIdExpirationDate,
+    string? NationalIdIssuedBy,
+    string? SocialInsuranceNumber,
+    string? TaxId,
     DateOnly? StartDate,
     string? PositionTitle,
     string? DepartmentName,
@@ -12,8 +30,6 @@ public record EmployeeDto(
     string? EmployeeType,
     string? TimeType,
     string? Status,
-    string? PermanentAddress,
-    string? CurrentAddress,
     DateTime? CreatedAt,
     DateTime? UpdatedAt
 );
@@ -53,8 +69,33 @@ public class EducationDto
 {
     public string Degree { get; set; } = default!;
     public string? FieldOfStudy { get; set; }
-    public double? Gpa { get; set; }
     public string? Country { get; set; }
+    public string? Institution { get; set; }
+    public int? StartYear { get; set; }
+    public int? EndYear { get; set; }
+    public double? Gpa { get; set; }
+}
+
+/// <summary>
+/// DTO for bank account during onboarding
+/// </summary>
+public class BankAccountDto
+{
+    public string BankName { get; set; } = default!;
+    public string AccountNumber { get; set; } = default!;
+    public string? AccountName { get; set; }
+}
+
+/// <summary>
+/// DTO for National ID information
+/// </summary>
+public class NationalIdDto
+{
+    public string? Country { get; set; }
+    public string? Number { get; set; }
+    public DateOnly? IssuedDate { get; set; }
+    public DateOnly? ExpirationDate { get; set; }
+    public string? IssuedBy { get; set; }
 }
 
 /// <summary>
@@ -63,12 +104,34 @@ public class EducationDto
 public class OnboardDto
 {
     // Personal details
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? PreferredName { get; set; }
+    public string? Sex { get; set; }
+    public DateOnly? DateOfBirth { get; set; }
+    public string? MaritalStatus { get; set; }
+    public string? Pronoun { get; set; }
+    public string? PersonalEmail { get; set; }
     public string? Phone { get; set; }
+    public string? Phone2 { get; set; }
 
     // Address
     public string? PermanentAddress { get; set; }
     public string? CurrentAddress { get; set; }
 
-    // Education history
+    // National ID
+    public NationalIdDto? NationalId { get; set; }
+
+    // Social Insurance & Tax
+    public string? SocialInsuranceNumber { get; set; }
+    public string? TaxId { get; set; }
+
+    // Education history (optional)
     public List<EducationDto>? Education { get; set; }
+
+    // Financial details
+    public BankAccountDto? BankAccount { get; set; }
+
+    // Comment
+    public string? Comment { get; set; }
 }

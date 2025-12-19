@@ -1,15 +1,24 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
+
 namespace EmployeeApi.Models;
 
+[PrimaryKey(nameof(AccountNumber), nameof(BankName))]
 public class BankAccount
 {
-    public long Id { get; set; }
-    public long EmployeeId { get; set; }
-    public Employee Employee { get; set; } = default!;
+    [Column("account_number")]
     public string AccountNumber { get; set; } = default!;
+
+    [Column("bank_name")]
     public string BankName { get; set; } = default!;
+
+    [Column("account_name")]
     public string? AccountName { get; set; }
-    public string Currency { get; set; } = "USD";
-    public bool IsPrimary { get; set; } = false;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("emp_id")]
+    public long EmployeeId { get; set; }
+
+    [ForeignKey("EmployeeId")]
+    public Employee Employee { get; set; } = default!;
 }

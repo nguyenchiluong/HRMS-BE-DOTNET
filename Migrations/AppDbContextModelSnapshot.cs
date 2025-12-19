@@ -65,7 +65,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("AttendanceRecords");
+                    b.ToTable("AttendanceRecords", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.BankAccount", b =>
@@ -110,7 +110,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("BankAccounts");
+                    b.ToTable("BankAccounts", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.BonusPointAccount", b =>
@@ -146,7 +146,7 @@ namespace EmployeeApi.Migrations
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
-                    b.ToTable("BonusPointAccounts");
+                    b.ToTable("BonusPointAccounts", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Campaign", b =>
@@ -190,7 +190,7 @@ namespace EmployeeApi.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Campaigns");
+                    b.ToTable("Campaigns", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.CampaignParticipant", b =>
@@ -224,7 +224,7 @@ namespace EmployeeApi.Migrations
                     b.HasIndex("CampaignId", "EmployeeId")
                         .IsUnique();
 
-                    b.ToTable("CampaignParticipants");
+                    b.ToTable("CampaignParticipants", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Department", b =>
@@ -261,7 +261,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("ManagerId");
 
-                    b.ToTable("Departments");
+                    b.ToTable("Departments", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Education", b =>
@@ -306,7 +306,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("Educations");
+                    b.ToTable("Educations", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Employee", b =>
@@ -375,7 +375,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("PositionId");
 
-                    b.ToTable("Employees");
+                    b.ToTable("Employees", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.EmployeeActivity", b =>
@@ -414,7 +414,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("EmployeeId");
 
-                    b.ToTable("EmployeeActivities");
+                    b.ToTable("EmployeeActivities", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Position", b =>
@@ -449,7 +449,7 @@ namespace EmployeeApi.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("Positions");
+                    b.ToTable("Positions", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.RedemptionTransaction", b =>
@@ -488,7 +488,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("RedeemedByEmployeeId");
 
-                    b.ToTable("RedemptionTransactions");
+                    b.ToTable("RedemptionTransactions", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Request", b =>
@@ -551,7 +551,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("Requests");
+                    b.ToTable("Requests", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.TransferTransaction", b =>
@@ -595,7 +595,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("ToAccountId");
 
-                    b.ToTable("TransferTransactions");
+                    b.ToTable("TransferTransactions", (string)null);
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.AttendanceRecord", b =>
