@@ -99,18 +99,15 @@ public class NationalIdDto
 }
 
 /// <summary>
-/// Event message for sending onboarding email to new employee
+/// Event message for sending onboarding email to new employee.
+/// Matches the Java consumer's SendEmailEvent DTO.
 /// </summary>
-public class SendOnboardingEmailEvent
+public class SendEmailEvent
 {
     public long EmployeeId { get; set; }
+    public string PersonalEmail { get; set; } = default!;
     public string FullName { get; set; } = default!;
-    public string Email { get; set; } = default!;
-    public string OnboardingUrl { get; set; } = default!;
-    public DateOnly StartDate { get; set; }
-    public string? PositionTitle { get; set; }
-    public string? DepartmentName { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? WorkEmail { get; set; }
 }
 
 /// <summary>

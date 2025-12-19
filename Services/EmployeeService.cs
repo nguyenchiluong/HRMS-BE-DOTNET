@@ -127,7 +127,7 @@ public class EmployeeService : IEmployeeService
         await _repo.SaveChangesAsync();
 
         // Publish event to send onboarding email to the new employee
-        await PublishOnboardingEmailEvent(entity, department.Name, position.Title);
+        await PublishOnboardingEmailEvent(entity);
 
         return ToDto(entity);
     }
@@ -135,29 +135,22 @@ public class EmployeeService : IEmployeeService
     /// <summary>
     /// Publishes an event to send onboarding email to the new employee
     /// </summary>
-    private async Task PublishOnboardingEmailEvent(Employee employee, string? departmentName, string? positionTitle)
+    private async Task PublishOnboardingEmailEvent(Employee employee)
     {
         try
         {
-            var baseUrl = _configuration["Application:BaseUrl"] ?? "http://localhost:5188";
-            var onboardingUrl = $"{baseUrl}/onboarding/{employee.Id}";
-
-            var emailEvent = new SendOnboardingEmailEvent
+            var emailEvent = new SendEmailEvent
             {
                 EmployeeId = employee.Id,
+                PersonalEmail = employee.PersonalEmail ?? employee.Email,
                 FullName = employee.FullName,
-                Email = employee.Email,
-                OnboardingUrl = onboardingUrl,
-                StartDate = employee.StartDate ?? DateOnly.FromDateTime(DateTime.Now),
-                PositionTitle = positionTitle,
-                DepartmentName = departmentName,
-                CreatedAt = DateTime.UtcNow
+                WorkEmail = employee.Email
             };
 
             await _messageProducer.PublishMessage(emailEvent, SEND_EMAIL_QUEUE);
             _logger.LogInformation(
-                "Published onboarding email event for employee {EmployeeId} ({Email})",
-                employee.Id, employee.Email);
+                "Published onboarding email event for employee {EmployeeId} ({PersonalEmail})",
+                employee.Id, emailEvent.PersonalEmail);
         }
         catch (Exception ex)
         {

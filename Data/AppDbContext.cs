@@ -29,10 +29,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Education>().ToTable("education");
         modelBuilder.Entity<Request>().ToTable("request");
         modelBuilder.Entity<AttendanceRecord>().ToTable("attendance_record");
-
-        // Entities in 'public' schema (shared/reference data)
-        modelBuilder.Entity<Position>().ToTable("position", "public");
-        modelBuilder.Entity<Department>().ToTable("department", "public");
+        modelBuilder.Entity<Position>().ToTable("position");
+        modelBuilder.Entity<Department>().ToTable("department");
 
         // Relationships per external schema
         modelBuilder.Entity<Employee>()
