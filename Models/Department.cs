@@ -1,13 +1,25 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace EmployeeApi.Models;
 
 public class Department
 {
+    [Key]
+    [Column("dept_id")]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public long Id { get; set; }
-    public string? Code { get; set; }
+
+    [Required]
+    [Column("dept_name")]
     public string Name { get; set; } = default!;
-    public string? Description { get; set; }
+
+    [Column("location")]
+    public string? Location { get; set; }
+
+    [Column("manager_id")]
     public long? ManagerId { get; set; }
+
+    [ForeignKey("ManagerId")]
     public Employee? Manager { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

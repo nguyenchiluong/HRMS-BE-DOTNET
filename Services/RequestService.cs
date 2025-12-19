@@ -244,19 +244,19 @@ public class RequestService : IRequestService
             Requester = request.Requester != null ? new EmployeeSummaryDto
             {
                 Id = request.Requester.Id,
-                Name = $"{request.Requester.FirstName} {request.Requester.LastName}",
+                Name = request.Requester.FullName,
                 Email = request.Requester.Email,
                 Department = request.Requester.Department?.Name
             } : null,
             Approver = request.Approver != null ? new EmployeeSummaryDto
             {
                 Id = request.Approver.Id,
-                Name = $"{request.Approver.FirstName} {request.Approver.LastName}",
+                Name = request.Approver.FullName,
                 Email = request.Approver.Email,
                 Department = request.Approver.Department?.Name
             } : null,
-            Payload = !string.IsNullOrEmpty(request.Payload) 
-                ? JsonSerializer.Deserialize<JsonElement>(request.Payload) 
+            Payload = !string.IsNullOrEmpty(request.Payload)
+                ? JsonSerializer.Deserialize<JsonElement>(request.Payload)
                 : null,
             ApprovalComment = request.ApprovalComment,
             RejectionReason = request.RejectionReason

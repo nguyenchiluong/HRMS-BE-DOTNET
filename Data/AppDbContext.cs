@@ -26,6 +26,21 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        // Map to snake_case table names in public schema
+        modelBuilder.Entity<Employee>().ToTable("employee");
+        modelBuilder.Entity<Position>().ToTable("position");
+        modelBuilder.Entity<Department>().ToTable("department");
+        modelBuilder.Entity<BankAccount>().ToTable("bank_account");
+        modelBuilder.Entity<Education>().ToTable("education");
+        modelBuilder.Entity<BonusPointAccount>().ToTable("bonus_point_account");
+        modelBuilder.Entity<TransferTransaction>().ToTable("transfer_transaction");
+        modelBuilder.Entity<RedemptionTransaction>().ToTable("redemption_transaction");
+        modelBuilder.Entity<Campaign>().ToTable("campaign");
+        modelBuilder.Entity<CampaignParticipant>().ToTable("campaign_participant");
+        modelBuilder.Entity<EmployeeActivity>().ToTable("employee_activity");
+        modelBuilder.Entity<Request>().ToTable("request");
+        modelBuilder.Entity<AttendanceRecord>().ToTable("attendance_record");
+
         // Relationships per external schema
         modelBuilder.Entity<Employee>()
             .HasOne(e => e.Position)
@@ -166,18 +181,6 @@ public class AppDbContext : DbContext
             .HasIndex(a => a.Date);
 
         // Unique indexes per external schema
-        modelBuilder.Entity<Position>()
-            .HasIndex(p => p.Code)
-            .IsUnique();
-
-        modelBuilder.Entity<Department>()
-            .HasIndex(d => d.Code)
-            .IsUnique();
-
-        modelBuilder.Entity<Employee>()
-            .HasIndex(e => e.EmployeeNumber)
-            .IsUnique();
-
         modelBuilder.Entity<Employee>()
             .HasIndex(e => e.Email)
             .IsUnique();
