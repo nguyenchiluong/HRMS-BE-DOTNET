@@ -13,7 +13,7 @@ public class AttendanceService : IAttendanceService
         _attendanceRepository = attendanceRepository;
     }
 
-    public async Task<CheckInResponseDto> CheckInAsync(int employeeId, LocationDto? location)
+    public async Task<CheckInResponseDto> CheckInAsync(long employeeId, LocationDto? location)
     {
         // Check if already checked in today
         var existingRecord = await _attendanceRepository.GetTodayAttendanceAsync(employeeId);
@@ -43,7 +43,7 @@ public class AttendanceService : IAttendanceService
         };
     }
 
-    public async Task<CheckOutResponseDto> CheckOutAsync(int employeeId)
+    public async Task<CheckOutResponseDto> CheckOutAsync(long employeeId)
     {
         // Get today's attendance record
         var record = await _attendanceRepository.GetTodayAttendanceAsync(employeeId);
@@ -73,7 +73,7 @@ public class AttendanceService : IAttendanceService
     }
 
     public async Task<PaginatedResponseDto<AttendanceRecordDto>> GetAttendanceHistoryAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,

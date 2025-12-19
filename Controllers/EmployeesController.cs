@@ -15,8 +15,8 @@ public class EmployeesController : ControllerBase
     public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetAll([FromQuery] string? search = null) =>
         Ok(await _service.GetAllAsync(search));
 
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<EmployeeDto>> GetOne(int id)
+    [HttpGet("{id:long}")]
+    public async Task<ActionResult<EmployeeDto>> GetOne(long id)
     {
         var dto = await _service.GetOneAsync(id);
         return dto is null ? NotFound() : Ok(dto);

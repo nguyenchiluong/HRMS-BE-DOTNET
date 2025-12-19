@@ -1,5 +1,7 @@
 using EmployeeApi.Data;
 using EmployeeApi.Models;
+using EmployeeApi.Models.Enums;
+using EmployeeApi.Helpers;
 using Microsoft.EntityFrameworkCore;
 
 namespace EmployeeApi.Repositories;
@@ -14,7 +16,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<List<Request>> GetRequestsAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -34,12 +36,14 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(status))
         {
-            query = query.Where(r => r.Status == status);
+            var statusEnum = EnumHelper.ParseRequestStatus(status);
+            query = query.Where(r => r.Status == statusEnum);
         }
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         if (dateFrom.HasValue)
@@ -60,7 +64,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<int> GetRequestsCountAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? status = null,
         string? requestType = null,
         DateTime? dateFrom = null,
@@ -75,12 +79,14 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(status))
         {
-            query = query.Where(r => r.Status == status);
+            var statusEnum = EnumHelper.ParseRequestStatus(status);
+            query = query.Where(r => r.Status == statusEnum);
         }
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         if (dateFrom.HasValue)
@@ -133,7 +139,7 @@ public class RequestRepository : IRequestRepository
     }
 
     public async Task<Dictionary<string, int>> GetRequestsSummaryByStatusAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null)
     {
@@ -154,7 +160,8 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         var summary = await query
@@ -162,11 +169,11 @@ public class RequestRepository : IRequestRepository
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        return summary.ToDictionary(s => s.Status.ToLower(), s => s.Count);
+        return summary.ToDictionary(s => s.Status.ToString().ToLower(), s => s.Count);
     }
 
     public async Task<Dictionary<string, int>> GetRequestsSummaryByTypeAsync(
-        int? employeeId = null,
+        long? employeeId = null,
         string? month = null,
         string? requestType = null)
     {
@@ -187,7 +194,8 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            query = query.Where(r => r.RequestType == requestType);
+            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
+            query = query.Where(r => r.RequestType == requestTypeEnum);
         }
 
         var summary = await query
@@ -195,6 +203,6 @@ public class RequestRepository : IRequestRepository
             .Select(g => new { Type = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        return summary.ToDictionary(s => s.Type, s => s.Count);
+        return summary.ToDictionary(s => s.Type.ToApiString(), s => s.Count);
     }
 }

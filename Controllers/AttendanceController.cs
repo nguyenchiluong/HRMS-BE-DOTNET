@@ -1,19 +1,27 @@
 using EmployeeApi.Dtos;
+using EmployeeApi.Extensions;
 using EmployeeApi.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EmployeeApi.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[Authorize]
 public class AttendanceController : ControllerBase
 {
     private readonly IAttendanceService _attendanceService;
+    private readonly IUserContextService _userContextService;
     private readonly ILogger<AttendanceController> _logger;
 
-    public AttendanceController(IAttendanceService attendanceService, ILogger<AttendanceController> logger)
+    public AttendanceController(
+        IAttendanceService attendanceService,
+        IUserContextService userContextService, 
+        ILogger<AttendanceController> logger)
     {
         _attendanceService = attendanceService;
+        _userContextService = userContextService;
         _logger = logger;
     }
 
@@ -25,8 +33,8 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var result = await _attendanceService.CheckInAsync(currentEmployeeId, dto?.Location);
 
@@ -51,8 +59,8 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID from authentication
-            var currentEmployeeId = 1; // Default for now
+            // Get current user's employee ID from JWT token (maps email to employee_id)
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var result = await _attendanceService.CheckOutAsync(currentEmployeeId);
 
@@ -74,7 +82,7 @@ public class AttendanceController : ControllerBase
     /// </summary>
     [HttpGet("history")]
     public async Task<ActionResult<PaginatedResponseDto<AttendanceRecordDto>>> GetAttendanceHistory(
-        [FromQuery] int? employee_id = null,
+        [FromQuery] long? employee_id = null,
         [FromQuery] DateTime? date_from = null,
         [FromQuery] DateTime? date_to = null,
         [FromQuery] int page = 1,
@@ -82,12 +90,17 @@ public class AttendanceController : ControllerBase
     {
         try
         {
-            // TODO: Get current user's employee ID and role from authentication
-            // For now, if employee_id is not provided, default to current user (employee_id = 1)
-            var currentEmployeeId = employee_id ?? 1;
+            // Get current user's employee ID and role from JWT token
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+            var userRole = _userContextService.GetRoleFromClaims(User);
+            
+            // Managers/Admins can filter by employee_id, regular employees see only their own
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+            long? filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
 
             var result = await _attendanceService.GetAttendanceHistoryAsync(
-                currentEmployeeId,
+                filterEmployeeId,
                 date_from,
                 date_to,
                 page,

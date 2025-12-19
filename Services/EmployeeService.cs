@@ -12,11 +12,11 @@ public class EmployeeService : IEmployeeService
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync(string? search = null)
     {
         var list = await _repo.ListAsync(string.IsNullOrWhiteSpace(search) ? null :
-            e => e.FullName.Contains(search!) || e.Email.Contains(search!));
+            e => (e.FirstName + " " + e.LastName).Contains(search!) || (e.Email ?? "").Contains(search!));
         return list.Select(ToDto);
     }
 
-    public async Task<EmployeeDto?> GetOneAsync(int id)
+    public async Task<EmployeeDto?> GetOneAsync(long id)
     {
         var e = await _repo.GetByIdAsync(id);
         return e is null ? null : ToDto(e);
@@ -24,26 +24,29 @@ public class EmployeeService : IEmployeeService
 
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeDto input)
     {
-        if (string.IsNullOrWhiteSpace(input.FullName))
-            throw new ArgumentException("FullName is required");
-        if (string.IsNullOrWhiteSpace(input.Email))
-            throw new ArgumentException("Email is required");
+        if (string.IsNullOrWhiteSpace(input.FirstName))
+            throw new ArgumentException("FirstName is required");
+        if (string.IsNullOrWhiteSpace(input.LastName))
+            throw new ArgumentException("LastName is required");
 
-        if (await _repo.ExistsByEmailAsync(input.Email.Trim()))
+        if (!string.IsNullOrWhiteSpace(input.Email) && await _repo.ExistsByEmailAsync(input.Email.Trim()))
             throw new InvalidOperationException("Employee already exists");
 
         var entity = new Employee
         {
-            FullName = input.FullName.Trim(),
-            Email = input.Email.Trim(),
-            Position = input.Position,
-            StartDate = input.StartDate,
-            Status = input.Status,
-            JobLevel = input.JobLevel,
-            Department = input.Department,
-            EmploymentType = input.EmploymentType,
-            TimeType = input.TimeType,
-            LastUpdated = DateTime.UtcNow
+            FirstName = input.FirstName.Trim(),
+            LastName = input.LastName.Trim(),
+            Email = input.Email?.Trim(),
+            Phone = input.Phone,
+            HireDate = input.HireDate,
+            BirthDate = input.BirthDate,
+            PositionId = input.PositionId,
+            DepartmentId = input.DepartmentId,
+            ManagerId = input.ManagerId,
+            IsActive = input.IsActive,
+            JobStatus = input.JobStatus,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         await _repo.AddAsync(entity);
@@ -51,7 +54,7 @@ public class EmployeeService : IEmployeeService
         return ToDto(entity);
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(long id)
     {
         var exists = await _repo.GetByIdAsync(id);
         if (exists is null) return false;
@@ -63,8 +66,18 @@ public class EmployeeService : IEmployeeService
 
     private static EmployeeDto ToDto(Employee e) =>
         new EmployeeDto(
-            e.Id, e.FullName, e.Email, e.Position, e.StartDate,
-            e.Status, e.JobLevel, e.Department,
-            e.EmploymentType, e.TimeType, e.LastUpdated
+            e.Id,
+            e.FirstName,
+            e.LastName,
+            e.Email,
+            e.Phone,
+            e.HireDate,
+            e.BirthDate,
+            e.Position?.Title,
+            e.Department?.Name,
+            e.IsActive,
+            e.JobStatus,
+            e.CreatedAt,
+            e.UpdatedAt
         );
 }
