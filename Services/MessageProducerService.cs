@@ -12,6 +12,7 @@ public class MessageProducerService : IMessageProducerService, IDisposable
     private readonly IConnection _connection;
     private readonly IChannel _channel;
     private readonly ILogger<MessageProducerService> _logger;
+    private readonly JsonSerializerOptions _jsonOptions;
     private bool _disposed = false;
 
     public MessageProducerService(IConnection connection, ILogger<MessageProducerService> logger)
@@ -19,6 +20,10 @@ public class MessageProducerService : IMessageProducerService, IDisposable
         _connection = connection;
         _logger = logger;
         _channel = _connection.CreateChannelAsync().GetAwaiter().GetResult();
+        _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
     }
 
     /// <summary>
@@ -37,7 +42,7 @@ public class MessageProducerService : IMessageProducerService, IDisposable
                 arguments: null
             );
 
-            var jsonMessage = JsonSerializer.Serialize(message);
+            var jsonMessage = JsonSerializer.Serialize(message, _jsonOptions);
             var body = Encoding.UTF8.GetBytes(jsonMessage);
 
             var properties = new BasicProperties
@@ -67,7 +72,7 @@ public class MessageProducerService : IMessageProducerService, IDisposable
     /// <summary>
     /// Publishes a message to the specified exchange with a routing key
     /// </summary>
-    public void PublishToExchange<T>(T message, string exchangeName, string routingKey)
+    public async Task PublishToExchange<T>(T message, string exchangeName, string routingKey)
     {
         try
         {
@@ -80,7 +85,7 @@ public class MessageProducerService : IMessageProducerService, IDisposable
                 arguments: null
             );
 
-            var jsonMessage = JsonSerializer.Serialize(message);
+            var jsonMessage = JsonSerializer.Serialize(message, _jsonOptions);
             var body = Encoding.UTF8.GetBytes(jsonMessage);
 
             var properties = new BasicProperties

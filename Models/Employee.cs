@@ -1,31 +1,122 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EmployeeApi.Models;
 
 public class Employee
 {
+    [Key]
+    [Column("emp_id")]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public long Id { get; set; }
-    public string? EmployeeNumber { get; set; }
+
+    // Basic Info
     [Required]
-    public string FirstName { get; set; } = default!;
+    [Column("full_name")]
+    public string FullName { get; set; } = default!;
+
+    [Column("first_name")]
+    public string? FirstName { get; set; }
+
+    [Column("last_name")]
+    public string? LastName { get; set; }
+
+    [Column("preferred_name")]
+    public string? PreferredName { get; set; }
+
     [Required]
-    public string LastName { get; set; } = default!;
-    public string? Email { get; set; }
+    [Column("email")]
+    public string Email { get; set; } = default!;
+
+    [Column("personal_email")]
+    public string? PersonalEmail { get; set; }
+
+    [Column("phone_number")]
     public string? Phone { get; set; }
-    public DateTime? HireDate { get; set; }
-    public DateTime? BirthDate { get; set; }
 
-    public long? PositionId { get; set; }
-    public Position? Position { get; set; }
+    [Column("phone_number_2")]
+    public string? Phone2 { get; set; }
 
+    // Personal Details
+    [Column("sex")]
+    public string? Sex { get; set; }
+
+    [Column("date_of_birth", TypeName = "date")]
+    public DateOnly? DateOfBirth { get; set; }
+
+    [Column("marital_status")]
+    public string? MaritalStatus { get; set; }
+
+    [Column("pronoun")]
+    public string? Pronoun { get; set; }
+
+    // Address
+    [Column("permanent_address")]
+    public string? PermanentAddress { get; set; }
+
+    [Column("current_address")]
+    public string? CurrentAddress { get; set; }
+
+    // National ID
+    [Column("national_id_country")]
+    public string? NationalIdCountry { get; set; }
+
+    [Column("national_id_number")]
+    public string? NationalIdNumber { get; set; }
+
+    [Column("national_id_issued_date", TypeName = "date")]
+    public DateOnly? NationalIdIssuedDate { get; set; }
+
+    [Column("national_id_expiration_date", TypeName = "date")]
+    public DateOnly? NationalIdExpirationDate { get; set; }
+
+    [Column("national_id_issued_by")]
+    public string? NationalIdIssuedBy { get; set; }
+
+    // Social Insurance & Tax
+    [Column("social_insurance_number")]
+    public string? SocialInsuranceNumber { get; set; }
+
+    [Column("tax_id")]
+    public string? TaxId { get; set; }
+
+    // Employment Info
+    [Column("start_date", TypeName = "date")]
+    public DateOnly? StartDate { get; set; }
+
+    [Column("job_level")]
+    public string? JobLevel { get; set; }
+
+    [Column("employee_type")]
+    public string? EmployeeType { get; set; }
+
+    [Column("time_type")]
+    public string? TimeType { get; set; }
+
+    [Column("dept_id")]
     public long? DepartmentId { get; set; }
+
+    [ForeignKey("DepartmentId")]
     public Department? Department { get; set; }
 
+    [Column("position_id")]
+    public long? PositionId { get; set; }
+
+    [ForeignKey("PositionId")]
+    public Position? Position { get; set; }
+
+    [Column("manager_id")]
     public long? ManagerId { get; set; }
+
+    [ForeignKey("ManagerId")]
     public Employee? Manager { get; set; }
 
-    public bool IsActive { get; set; } = true;
-    public string? JobStatus { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Column("status")]
+    public string? Status { get; set; }
+
+    [Column("created_at", TypeName = "timestamp without time zone")]
+    public DateTime? CreatedAt { get; set; }
+
+    [Column("updated_at", TypeName = "timestamp without time zone")]
+    public DateTime? UpdatedAt { get; set; }
 }

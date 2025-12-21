@@ -1,15 +1,23 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace EmployeeApi.Models;
 
 public class Position
 {
+    [Key]
+    [Column("position_id")]
+    [DatabaseGenerated(DatabaseGeneratedOption.None)]
     public long Id { get; set; }
-    public string? Code { get; set; }
+
     [Required]
+    [Column("position_name")]
     public string Title { get; set; } = default!;
-    public string? Grade { get; set; }
+
+    [Column("description")]
     public string? Description { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [Required]
+    [Column("salary")]
+    public decimal Salary { get; set; }
 }

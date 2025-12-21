@@ -1,18 +1,40 @@
 using EmployeeApi.Dtos;
 using EmployeeApi.Models;
 using EmployeeApi.Repositories;
+using EmployeeApi.Data;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace EmployeeApi.Services;
 
 public class EmployeeService : IEmployeeService
 {
     private readonly IEmployeeRepository _repo;
-    public EmployeeService(IEmployeeRepository repo) => _repo = repo;
+    private readonly AppDbContext _db;
+    private readonly IMessageProducerService _messageProducer;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<EmployeeService> _logger;
+
+    private const string SEND_EMAIL_QUEUE = "sendEmail";
+
+    public EmployeeService(
+        IEmployeeRepository repo,
+        AppDbContext db,
+        IMessageProducerService messageProducer,
+        IConfiguration configuration,
+        ILogger<EmployeeService> logger)
+    {
+        _repo = repo;
+        _db = db;
+        _messageProducer = messageProducer;
+        _configuration = configuration;
+        _logger = logger;
+    }
 
     public async Task<IEnumerable<EmployeeDto>> GetAllAsync(string? search = null)
     {
         var list = await _repo.ListAsync(string.IsNullOrWhiteSpace(search) ? null :
-            e => (e.FirstName + " " + e.LastName).Contains(search!) || (e.Email ?? "").Contains(search!));
+            e => e.FullName.Contains(search!) || e.Email.Contains(search!));
         return list.Select(ToDto);
     }
 
@@ -24,34 +46,200 @@ public class EmployeeService : IEmployeeService
 
     public async Task<EmployeeDto> CreateAsync(CreateEmployeeDto input)
     {
-        if (string.IsNullOrWhiteSpace(input.FirstName))
-            throw new ArgumentException("FirstName is required");
-        if (string.IsNullOrWhiteSpace(input.LastName))
-            throw new ArgumentException("LastName is required");
+        if (string.IsNullOrWhiteSpace(input.FullName))
+            throw new ArgumentException("FullName is required");
+        if (string.IsNullOrWhiteSpace(input.Email))
+            throw new ArgumentException("Email is required");
 
-        if (!string.IsNullOrWhiteSpace(input.Email) && await _repo.ExistsByEmailAsync(input.Email.Trim()))
+        if (await _repo.ExistsByEmailAsync(input.Email.Trim()))
             throw new InvalidOperationException("Employee already exists");
 
         var entity = new Employee
         {
-            FirstName = input.FirstName.Trim(),
-            LastName = input.LastName.Trim(),
-            Email = input.Email?.Trim(),
+            Id = await _repo.GetNextIdAsync(),
+            FullName = input.FullName.Trim(),
+            Email = input.Email.Trim(),
             Phone = input.Phone,
-            HireDate = input.HireDate,
-            BirthDate = input.BirthDate,
+            StartDate = input.StartDate,
             PositionId = input.PositionId,
             DepartmentId = input.DepartmentId,
             ManagerId = input.ManagerId,
-            IsActive = input.IsActive,
-            JobStatus = input.JobStatus,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            Status = input.Status ?? "PENDING_ONBOARDING",
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
         };
 
         await _repo.AddAsync(entity);
         await _repo.SaveChangesAsync();
         return ToDto(entity);
+    }
+
+    public async Task<EmployeeDto> CreateInitialProfileAsync(InitialProfileDto input)
+    {
+        if (string.IsNullOrWhiteSpace(input.FullName))
+            throw new ArgumentException("FullName is required");
+        if (string.IsNullOrWhiteSpace(input.Email))
+            throw new ArgumentException("Email is required");
+        if (string.IsNullOrWhiteSpace(input.JobLevel))
+            throw new ArgumentException("JobLevel is required");
+        if (string.IsNullOrWhiteSpace(input.EmployeeType))
+            throw new ArgumentException("EmployeeType is required");
+        if (string.IsNullOrWhiteSpace(input.TimeType))
+            throw new ArgumentException("TimeType is required");
+
+        if (await _repo.ExistsByEmailAsync(input.Email.Trim()))
+            throw new InvalidOperationException("Employee with this email already exists");
+
+        // Validate foreign keys
+        var department = await _db.Departments.FindAsync(input.DepartmentId);
+        if (department is null)
+            throw new ArgumentException($"Department with ID {input.DepartmentId} does not exist");
+
+        var position = await _db.Positions.FindAsync(input.PositionId);
+        if (position is null)
+            throw new ArgumentException($"Position with ID {input.PositionId} does not exist");
+
+        if (input.ManagerId.HasValue)
+        {
+            var manager = await _repo.GetByIdAsync(input.ManagerId.Value);
+            if (manager is null)
+                throw new ArgumentException($"Manager with ID {input.ManagerId} does not exist");
+        }
+
+        var entity = new Employee
+        {
+            Id = await _repo.GetNextIdAsync(),
+            FullName = input.FullName.Trim(),
+            Email = input.Email.Trim(),
+            PositionId = input.PositionId,
+            JobLevel = input.JobLevel.Trim(),
+            DepartmentId = input.DepartmentId,
+            EmployeeType = input.EmployeeType.Trim(),
+            TimeType = input.TimeType.Trim(),
+            StartDate = input.StartDate,
+            ManagerId = input.ManagerId,
+            Status = "PENDING_ONBOARDING",
+            CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now
+        };
+
+        await _repo.AddAsync(entity);
+        await _repo.SaveChangesAsync();
+
+        // Publish event to send onboarding email to the new employee
+        await PublishOnboardingEmailEvent(entity);
+
+        return ToDto(entity);
+    }
+
+    /// <summary>
+    /// Publishes an event to send onboarding email to the new employee
+    /// </summary>
+    private async Task PublishOnboardingEmailEvent(Employee employee)
+    {
+        try
+        {
+            var emailEvent = new SendEmailEvent
+            {
+                EmployeeId = employee.Id,
+                PersonalEmail = employee.PersonalEmail ?? employee.Email,
+                FullName = employee.FullName,
+                WorkEmail = employee.Email
+            };
+
+            await _messageProducer.PublishMessage(emailEvent, SEND_EMAIL_QUEUE);
+            _logger.LogInformation(
+                "Published onboarding email event for employee {EmployeeId} ({PersonalEmail})",
+                employee.Id, emailEvent.PersonalEmail);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to publish onboarding email event for employee {EmployeeId}",
+                employee.Id);
+            // Don't throw - email sending failure shouldn't fail the profile creation
+        }
+    }
+
+    public async Task<EmployeeDto> CompleteOnboardingAsync(long employeeId, OnboardDto input)
+    {
+        var employee = await _repo.GetByIdAsync(employeeId);
+        if (employee is null)
+            throw new KeyNotFoundException("Employee not found");
+
+        if (employee.Status == "ACTIVE")
+            throw new InvalidOperationException("Onboarding has already been completed");
+
+        // Update personal details
+        employee.FirstName = input.FirstName;
+        employee.LastName = input.LastName;
+        employee.PreferredName = input.PreferredName;
+        employee.Sex = input.Sex;
+        employee.DateOfBirth = input.DateOfBirth;
+        employee.MaritalStatus = input.MaritalStatus;
+        employee.Pronoun = input.Pronoun;
+        employee.PersonalEmail = input.PersonalEmail;
+        employee.Phone = input.Phone;
+        employee.Phone2 = input.Phone2;
+
+        // Update address
+        employee.PermanentAddress = input.PermanentAddress;
+        employee.CurrentAddress = input.CurrentAddress;
+
+        // Update National ID
+        if (input.NationalId != null)
+        {
+            employee.NationalIdCountry = input.NationalId.Country;
+            employee.NationalIdNumber = input.NationalId.Number;
+            employee.NationalIdIssuedDate = input.NationalId.IssuedDate;
+            employee.NationalIdExpirationDate = input.NationalId.ExpirationDate;
+            employee.NationalIdIssuedBy = input.NationalId.IssuedBy;
+        }
+
+        // Update Social Insurance & Tax
+        employee.SocialInsuranceNumber = input.SocialInsuranceNumber;
+        employee.TaxId = input.TaxId;
+
+        // Mark onboarding as completed
+        employee.Status = "ACTIVE";
+        employee.UpdatedAt = DateTime.Now;
+
+        _repo.Update(employee);
+
+        // Add education records if provided
+        if (input.Education != null && input.Education.Count > 0)
+        {
+            foreach (var edu in input.Education)
+            {
+                var education = new Education
+                {
+                    EmployeeId = employeeId,
+                    Degree = edu.Degree,
+                    FieldOfStudy = edu.FieldOfStudy,
+                    Gpa = edu.Gpa,
+                    Country = edu.Country
+                };
+                await _db.Educations.AddAsync(education);
+            }
+        }
+
+        // Add bank account if provided
+        if (input.BankAccount != null &&
+            !string.IsNullOrWhiteSpace(input.BankAccount.BankName) &&
+            !string.IsNullOrWhiteSpace(input.BankAccount.AccountNumber))
+        {
+            var bankAccount = new BankAccount
+            {
+                EmployeeId = employeeId,
+                BankName = input.BankAccount.BankName.Trim(),
+                AccountNumber = input.BankAccount.AccountNumber.Trim(),
+                AccountName = input.BankAccount.AccountName?.Trim()
+            };
+            await _db.BankAccounts.AddAsync(bankAccount);
+        }
+
+        await _repo.SaveChangesAsync();
+        return ToDto(employee);
     }
 
     public async Task<bool> DeleteAsync(long id)
@@ -67,16 +255,34 @@ public class EmployeeService : IEmployeeService
     private static EmployeeDto ToDto(Employee e) =>
         new EmployeeDto(
             e.Id,
+            e.FullName,
             e.FirstName,
             e.LastName,
+            e.PreferredName,
             e.Email,
+            e.PersonalEmail,
             e.Phone,
-            e.HireDate,
-            e.BirthDate,
+            e.Phone2,
+            e.Sex,
+            e.DateOfBirth,
+            e.MaritalStatus,
+            e.Pronoun,
+            e.PermanentAddress,
+            e.CurrentAddress,
+            e.NationalIdCountry,
+            e.NationalIdNumber,
+            e.NationalIdIssuedDate,
+            e.NationalIdExpirationDate,
+            e.NationalIdIssuedBy,
+            e.SocialInsuranceNumber,
+            e.TaxId,
+            e.StartDate,
             e.Position?.Title,
             e.Department?.Name,
-            e.IsActive,
-            e.JobStatus,
+            e.JobLevel,
+            e.EmployeeType,
+            e.TimeType,
+            e.Status,
             e.CreatedAt,
             e.UpdatedAt
         );

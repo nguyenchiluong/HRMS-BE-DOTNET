@@ -34,4 +34,10 @@ public class EmployeeRepository : IEmployeeRepository
 
     public async Task<Employee?> GetByEmailAsync(string email) =>
         await _db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Email == email);
+
+    public async Task<long> GetNextIdAsync()
+    {
+        var maxId = await _db.Employees.MaxAsync(e => (long?)e.Id) ?? 0;
+        return maxId + 1;
+    }
 }
