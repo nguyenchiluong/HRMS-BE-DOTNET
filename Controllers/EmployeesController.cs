@@ -22,6 +22,27 @@ public class EmployeesController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    /// <summary>
+    /// Validates onboarding token and returns employee info for the onboarding form
+    /// </summary>
+    [HttpGet("onboarding-info")]
+    public async Task<ActionResult<EmployeeDto>> GetOnboardingInfo([FromQuery] string token)
+    {
+        try
+        {
+            var dto = await _service.GetByOnboardingTokenAsync(token);
+            return Ok(dto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+    }
+
     [HttpPost]
     public async Task<ActionResult<EmployeeDto>> Create([FromBody] CreateEmployeeDto input)
     {
