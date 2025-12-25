@@ -1,5 +1,7 @@
 using EmployeeApi.Dtos;
+using EmployeeApi.Helpers;
 using EmployeeApi.Models;
+using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
 using EmployeeApi.Data;
 using Microsoft.Extensions.Configuration;
@@ -66,7 +68,7 @@ public class EmployeeService : IEmployeeService
             PositionId = input.PositionId,
             DepartmentId = input.DepartmentId,
             ManagerId = input.ManagerId,
-            Status = input.Status ?? "PENDING_ONBOARDING",
+            Status = input.Status ?? EmployeeStatus.PendingOnboarding.ToApiString(),
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
         };
@@ -120,7 +122,7 @@ public class EmployeeService : IEmployeeService
             TimeType = input.TimeType.Trim(),
             StartDate = input.StartDate,
             ManagerId = input.ManagerId,
-            Status = "PENDING_ONBOARDING",
+            Status = EmployeeStatus.PendingOnboarding.ToApiString(),
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
         };
@@ -241,7 +243,7 @@ public class EmployeeService : IEmployeeService
         if (employee is null)
             throw new KeyNotFoundException("Employee not found");
 
-        if (employee.Status == "ACTIVE")
+        if (employee.Status == EmployeeStatus.Active.ToApiString())
             throw new InvalidOperationException("Onboarding has already been completed");
 
         // Update personal details
@@ -275,7 +277,7 @@ public class EmployeeService : IEmployeeService
         employee.TaxId = input.TaxId;
 
         // Mark onboarding as completed
-        employee.Status = "ACTIVE";
+        employee.Status = EmployeeStatus.Active.ToApiString();
         employee.UpdatedAt = DateTime.Now;
 
         _repo.Update(employee);
@@ -326,6 +328,96 @@ public class EmployeeService : IEmployeeService
         if (employee is null)
             throw new KeyNotFoundException("Employee not found");
 
+        return ToDto(employee);
+    }
+
+    public async Task<EmployeeDto> SaveOnboardingProgressAsync(string token, OnboardDto input)
+    {
+        var (employeeId, errorMessage) = ValidateOnboardingToken(token);
+        if (errorMessage != null)
+            throw new ArgumentException(errorMessage);
+
+        var employee = await _repo.GetByIdAsync(employeeId);
+        if (employee is null)
+            throw new KeyNotFoundException("Employee not found");
+
+        if (employee.Status == EmployeeStatus.Active.ToApiString())
+            throw new InvalidOperationException("Onboarding has already been completed");
+
+        // Update personal details
+        employee.FirstName = input.FirstName;
+        employee.LastName = input.LastName;
+        employee.PreferredName = input.PreferredName;
+        employee.Sex = input.Sex;
+        employee.DateOfBirth = input.DateOfBirth;
+        employee.MaritalStatus = input.MaritalStatus;
+        employee.Pronoun = input.Pronoun;
+        employee.PersonalEmail = input.PersonalEmail;
+        employee.Phone = input.Phone;
+        employee.Phone2 = input.Phone2;
+
+        // Update address
+        employee.PermanentAddress = input.PermanentAddress;
+        employee.CurrentAddress = input.CurrentAddress;
+
+        // Update National ID
+        if (input.NationalId != null)
+        {
+            employee.NationalIdCountry = input.NationalId.Country;
+            employee.NationalIdNumber = input.NationalId.Number;
+            employee.NationalIdIssuedDate = input.NationalId.IssuedDate;
+            employee.NationalIdExpirationDate = input.NationalId.ExpirationDate;
+            employee.NationalIdIssuedBy = input.NationalId.IssuedBy;
+        }
+
+        // Update Social Insurance & Tax
+        employee.SocialInsuranceNumber = input.SocialInsuranceNumber;
+        employee.TaxId = input.TaxId;
+
+        // Keep status as PENDING_ONBOARDING (don't complete)
+        employee.UpdatedAt = DateTime.Now;
+
+        _repo.Update(employee);
+
+        // Handle education records - remove existing and add new
+        var existingEducations = _db.Educations.Where(e => e.EmployeeId == employeeId);
+        _db.Educations.RemoveRange(existingEducations);
+
+        if (input.Education != null && input.Education.Count > 0)
+        {
+            foreach (var edu in input.Education)
+            {
+                var education = new Education
+                {
+                    EmployeeId = employeeId,
+                    Degree = edu.Degree,
+                    FieldOfStudy = edu.FieldOfStudy,
+                    Gpa = edu.Gpa,
+                    Country = edu.Country
+                };
+                await _db.Educations.AddAsync(education);
+            }
+        }
+
+        // Handle bank account - remove existing and add new
+        var existingBankAccounts = _db.BankAccounts.Where(b => b.EmployeeId == employeeId);
+        _db.BankAccounts.RemoveRange(existingBankAccounts);
+
+        if (input.BankAccount != null &&
+            !string.IsNullOrWhiteSpace(input.BankAccount.BankName) &&
+            !string.IsNullOrWhiteSpace(input.BankAccount.AccountNumber))
+        {
+            var bankAccount = new BankAccount
+            {
+                EmployeeId = employeeId,
+                BankName = input.BankAccount.BankName.Trim(),
+                AccountNumber = input.BankAccount.AccountNumber.Trim(),
+                AccountName = input.BankAccount.AccountName?.Trim()
+            };
+            await _db.BankAccounts.AddAsync(bankAccount);
+        }
+
+        await _repo.SaveChangesAsync();
         return ToDto(employee);
     }
 

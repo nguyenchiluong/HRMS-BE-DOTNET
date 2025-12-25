@@ -43,6 +43,33 @@ public class EmployeesController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Saves onboarding progress without completing it
+    /// </summary>
+    [HttpPut("onboarding-progress")]
+    public async Task<ActionResult<EmployeeDto>> SaveOnboardingProgress(
+        [FromQuery] string token,
+        [FromBody] OnboardDto input)
+    {
+        try
+        {
+            var dto = await _service.SaveOnboardingProgressAsync(token, input);
+            return Ok(dto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost]
     public async Task<ActionResult<EmployeeDto>> Create([FromBody] CreateEmployeeDto input)
     {

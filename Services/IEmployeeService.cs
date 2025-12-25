@@ -23,4 +23,9 @@ public interface IEmployeeService
     /// Validates onboarding token and returns employee info for the onboarding form
     /// </summary>
     Task<EmployeeDto> GetByOnboardingTokenAsync(string token);
+
+    /// <summary>
+    /// Saves onboarding progress without completing it
+    /// </summary>
+    Task<EmployeeDto> SaveOnboardingProgressAsync(string token, OnboardDto input);
 }
