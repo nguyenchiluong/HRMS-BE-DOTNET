@@ -29,7 +29,7 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@hrms.com
       PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "5050:80"
     volumes:
@@ -42,24 +42,20 @@ services:
 
   # RabbitMQ Message Broker
   rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: hrms-profile-rabbitmq
-    restart: unless-stopped
-    environment:
-      RABBITMQ_DEFAULT_USER: hrms_user
-      RABBITMQ_DEFAULT_PASS: hrms_password
+    image: rabbitmq:3-management
+    container_name: rabbitmq_broker
     ports:
-      - "5672:5672"   # AMQP port
-      - "15672:15672" # Management UI
+      - "5672:5672" # AMQP port for client connections
+      - "15672:15672" # Management UI[](http://localhost:15672)
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=/
+    # Automatically declare the sendEmail topic exchange when RabbitMQ starts
     volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - hrms-network
-    healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./definitions.json:/etc/rabbitmq/definitions.json
+    restart: unless-stopped
 
 volumes:
   postgres_data:
