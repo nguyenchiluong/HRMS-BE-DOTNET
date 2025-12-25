@@ -1,0 +1,32 @@
+{
+  "exchanges": [
+    {
+      "name": "hrms.exchange",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "sendEmail",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "hrms.exchange",
+      "vhost": "/",
+      "destination": "sendEmail",
+      "destination_type": "queue",
+      "routing_key": "send.email",
+      "arguments": {}
+    }
+  ]
+}
