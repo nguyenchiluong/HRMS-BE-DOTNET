@@ -22,6 +22,54 @@ public class EmployeesController : ControllerBase
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    /// <summary>
+    /// Validates onboarding token and returns employee info for the onboarding form
+    /// </summary>
+    [HttpGet("onboarding-info")]
+    public async Task<ActionResult<EmployeeDto>> GetOnboardingInfo([FromQuery] string token)
+    {
+        try
+        {
+            var dto = await _service.GetByOnboardingTokenAsync(token);
+            return Ok(dto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+    }
+
+    /// <summary>
+    /// Saves onboarding progress without completing it
+    /// </summary>
+    [HttpPut("onboarding-progress")]
+    public async Task<ActionResult<EmployeeDto>> SaveOnboardingProgress(
+        [FromQuery] string token,
+        [FromBody] OnboardDto input)
+    {
+        try
+        {
+            var dto = await _service.SaveOnboardingProgressAsync(token, input);
+            return Ok(dto);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     [HttpPost]
     public async Task<ActionResult<EmployeeDto>> Create([FromBody] CreateEmployeeDto input)
     {

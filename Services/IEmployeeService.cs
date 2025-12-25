@@ -18,4 +18,14 @@ public interface IEmployeeService
     /// New hire completes their onboarding with personal details
     /// </summary>
     Task<EmployeeDto> CompleteOnboardingAsync(long employeeId, OnboardDto input);
+
+    /// <summary>
+    /// Validates onboarding token and returns employee info for the onboarding form
+    /// </summary>
+    Task<EmployeeDto> GetByOnboardingTokenAsync(string token);
+
+    /// <summary>
+    /// Saves onboarding progress without completing it
+    /// </summary>
+    Task<EmployeeDto> SaveOnboardingProgressAsync(string token, OnboardDto input);
 }

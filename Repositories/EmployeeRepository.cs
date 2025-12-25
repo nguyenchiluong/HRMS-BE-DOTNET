@@ -40,4 +40,11 @@ public class EmployeeRepository : IEmployeeRepository
         var maxId = await _db.Employees.MaxAsync(e => (long?)e.Id) ?? 0;
         return maxId + 1;
     }
+
+    public async Task<Employee?> GetByIdWithDetailsAsync(long id) =>
+        await _db.Employees
+            .Include(e => e.Position)
+            .Include(e => e.Department)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id);
 }

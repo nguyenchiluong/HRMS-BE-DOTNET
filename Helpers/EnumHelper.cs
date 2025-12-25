@@ -48,4 +48,30 @@ public static class EnumHelper
     {
         return status.ToString().ToUpper();
     }
+
+    public static EmployeeStatus ParseEmployeeStatus(string value)
+    {
+        return value.ToUpper() switch
+        {
+            "PENDING_ONBOARDING" or "PENDINGONBOARDING" => EmployeeStatus.PendingOnboarding,
+            "ACTIVE" => EmployeeStatus.Active,
+            "ON_LEAVE" or "ONLEAVE" => EmployeeStatus.OnLeave,
+            "INACTIVE" => EmployeeStatus.Inactive,
+            "TERMINATED" => EmployeeStatus.Terminated,
+            _ => Enum.Parse<EmployeeStatus>(value, ignoreCase: true)
+        };
+    }
+
+    public static string ToApiString(this EmployeeStatus status)
+    {
+        return status switch
+        {
+            EmployeeStatus.PendingOnboarding => "PENDING_ONBOARDING",
+            EmployeeStatus.Active => "ACTIVE",
+            EmployeeStatus.OnLeave => "ON_LEAVE",
+            EmployeeStatus.Inactive => "INACTIVE",
+            EmployeeStatus.Terminated => "TERMINATED",
+            _ => status.ToString().ToUpper()
+        };
+    }
 }

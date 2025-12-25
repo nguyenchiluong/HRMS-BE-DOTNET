@@ -99,15 +99,26 @@ public class NationalIdDto
 }
 
 /// <summary>
-/// Event message for sending onboarding email to new employee.
+/// Event message for sending email via RabbitMQ.
 /// Matches the Java consumer's SendEmailEvent DTO.
+/// The producer is responsible for defining all email content.
 /// </summary>
 public class SendEmailEvent
 {
-    public long EmployeeId { get; set; }
-    public string PersonalEmail { get; set; } = default!;
-    public string FullName { get; set; } = default!;
-    public string? WorkEmail { get; set; }
+    /// <summary>
+    /// The email address to send to
+    /// </summary>
+    public string EmailToSend { get; set; } = default!;
+
+    /// <summary>
+    /// The email subject
+    /// </summary>
+    public string Subject { get; set; } = default!;
+
+    /// <summary>
+    /// The email body content (HTML)
+    /// </summary>
+    public string HtmlContent { get; set; } = default!;
 }
 
 /// <summary>
