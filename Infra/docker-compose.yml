@@ -1,0 +1,47 @@
+include:
+  - infra.yml
+
+services:
+  # Employee API Service
+  employee-api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: hrms-employee-api
+    restart: unless-stopped
+    ports:
+      - "5188:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Default=Host=postgres;Port=5432;Database=hrms;Username=postgres;Password=dinh100110;SearchPath=dotnet
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=hrms_user
+      - RabbitMQ__Password=hrms_password
+      - RabbitMQ__VirtualHost=/
+      - Jwt__SecretKey=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      - Jwt__Issuer=your-auth-service
+      - Jwt__Audience=hrms-api
+      - Application__BaseUrl=http://employee-api:8080
+      - Application__OnboardingBaseUrl=http://localhost:5173
+    networks:
+      - hrms-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  hrms-network:
+    driver: bridge
+    name: hrms-network
