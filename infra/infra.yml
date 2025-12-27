@@ -53,8 +53,16 @@ services:
       - RABBITMQ_DEFAULT_VHOST=/
     # Automatically declare the sendEmail topic exchange when RabbitMQ starts
     volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
       - ./definitions.json:/etc/rabbitmq/definitions.json
+    networks:
+      - hrms-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
 volumes:
