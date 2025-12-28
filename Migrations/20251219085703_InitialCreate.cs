@@ -15,12 +15,9 @@ namespace EmployeeApi.Migrations
             migrationBuilder.EnsureSchema(
                 name: "dotnet");
 
-            migrationBuilder.EnsureSchema(
-                name: "public");
-
             migrationBuilder.CreateTable(
                 name: "position",
-                schema: "public",
+                schema: "dotnet",
                 columns: table => new
                 {
                     position_id = table.Column<long>(type: "bigint", nullable: false),
@@ -72,7 +69,7 @@ namespace EmployeeApi.Migrations
 
             migrationBuilder.CreateTable(
                 name: "department",
-                schema: "public",
+                schema: "dotnet",
                 columns: table => new
                 {
                     dept_id = table.Column<long>(type: "bigint", nullable: false),
@@ -129,7 +126,7 @@ namespace EmployeeApi.Migrations
                     table.ForeignKey(
                         name: "FK_employee_department_dept_id",
                         column: x => x.dept_id,
-                        principalSchema: "public",
+                        principalSchema: "dotnet",
                         principalTable: "department",
                         principalColumn: "dept_id",
                         onDelete: ReferentialAction.SetNull);
@@ -143,7 +140,7 @@ namespace EmployeeApi.Migrations
                     table.ForeignKey(
                         name: "FK_employee_position_position_id",
                         column: x => x.position_id,
-                        principalSchema: "public",
+                        principalSchema: "dotnet",
                         principalTable: "position",
                         principalColumn: "position_id",
                         onDelete: ReferentialAction.SetNull);
@@ -241,7 +238,7 @@ namespace EmployeeApi.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_department_manager_id",
-                schema: "public",
+                schema: "dotnet",
                 table: "department",
                 column: "manager_id");
 
@@ -316,7 +313,7 @@ namespace EmployeeApi.Migrations
 
             migrationBuilder.AddForeignKey(
                 name: "FK_department_employee_manager_id",
-                schema: "public",
+                schema: "dotnet",
                 table: "department",
                 column: "manager_id",
                 principalSchema: "dotnet",
@@ -330,7 +327,7 @@ namespace EmployeeApi.Migrations
         {
             migrationBuilder.DropForeignKey(
                 name: "FK_department_employee_manager_id",
-                schema: "public",
+                schema: "dotnet",
                 table: "department");
 
             migrationBuilder.DropTable(
@@ -355,11 +352,11 @@ namespace EmployeeApi.Migrations
 
             migrationBuilder.DropTable(
                 name: "department",
-                schema: "public");
+                schema: "dotnet");
 
             migrationBuilder.DropTable(
                 name: "position",
-                schema: "public");
+                schema: "dotnet");
         }
     }
 }

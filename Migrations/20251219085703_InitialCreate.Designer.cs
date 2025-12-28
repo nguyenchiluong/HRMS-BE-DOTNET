@@ -123,7 +123,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("ManagerId");
 
-                    b.ToTable("department", "public");
+                    b.ToTable("department", "dotnet");
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Education", b =>
@@ -330,7 +330,7 @@ namespace EmployeeApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("position", "public");
+                    b.ToTable("position", "dotnet");
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Request", b =>
