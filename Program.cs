@@ -5,6 +5,7 @@ using System.Text;
 using EmployeeApi.Data;
 using EmployeeApi.Repositories;
 using EmployeeApi.Services;
+using EmployeeApi.Services.Employee;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -81,6 +82,15 @@ builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+
+// Auth Service HttpClient
+builder.Services.AddHttpClient<IAuthService, AuthService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+builder.Services.AddScoped<IOnboardingTokenService, OnboardingTokenService>();
 
 // RabbitMQ Configuration
 builder.Services.AddSingleton<IConnection>(sp =>

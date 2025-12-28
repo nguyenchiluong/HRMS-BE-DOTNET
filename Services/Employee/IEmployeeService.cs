@@ -1,6 +1,6 @@
 using EmployeeApi.Dtos;
 
-namespace EmployeeApi.Services;
+namespace EmployeeApi.Services.Employee;
 
 public interface IEmployeeService
 {
@@ -29,3 +29,4 @@ public interface IEmployeeService
     /// </summary>
     Task<EmployeeDto> SaveOnboardingProgressAsync(string token, OnboardDto input);
 }
+
