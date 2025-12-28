@@ -52,7 +52,11 @@ public class CreateEmployeeDto
 public class InitialProfileDto
 {
     public string FullName { get; set; } = default!;
-    public string Email { get; set; } = default!;
+    /// <summary>
+    /// Personal email address to send the onboarding link to.
+    /// Work email will be auto-generated as fullname@hrms.com
+    /// </summary>
+    public string PersonalEmail { get; set; } = default!;
     public long PositionId { get; set; }
     public string JobLevel { get; set; } = default!;
     public long DepartmentId { get; set; }
