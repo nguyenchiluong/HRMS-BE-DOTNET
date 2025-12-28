@@ -80,13 +80,17 @@ public class EmployeeService : IEmployeeService
 
     public async Task<EmployeeDto> CreateInitialProfileAsync(InitialProfileDto input)
     {
-        await ValidateInitialProfileInput(input);
+        // Generate work email from full name
+        var workEmail = GenerateWorkEmail(input.FullName);
+
+        await ValidateInitialProfileInput(input, workEmail);
 
         var entity = new Models.Employee
         {
             Id = await _repo.GetNextIdAsync(),
             FullName = input.FullName.Trim(),
-            Email = input.Email.Trim(),
+            Email = workEmail,
+            PersonalEmail = input.PersonalEmail.Trim(),
             PositionId = input.PositionId,
             JobLevel = input.JobLevel.Trim(),
             DepartmentId = input.DepartmentId,
@@ -102,7 +106,7 @@ public class EmployeeService : IEmployeeService
         await _repo.AddAsync(entity);
         await _repo.SaveChangesAsync();
 
-        // Register auth account and send onboarding email
+        // Register auth account (using work email) and send onboarding email (to personal email)
         var generatedPassword = await RegisterAuthAccountAsync(entity);
         await PublishOnboardingEmailEvent(entity, generatedPassword);
 
@@ -183,12 +187,12 @@ public class EmployeeService : IEmployeeService
             throw new ArgumentException("Email is required");
     }
 
-    private async Task ValidateInitialProfileInput(InitialProfileDto input)
+    private async Task ValidateInitialProfileInput(InitialProfileDto input, string workEmail)
     {
         if (string.IsNullOrWhiteSpace(input.FullName))
             throw new ArgumentException("FullName is required");
-        if (string.IsNullOrWhiteSpace(input.Email))
-            throw new ArgumentException("Email is required");
+        if (string.IsNullOrWhiteSpace(input.PersonalEmail))
+            throw new ArgumentException("PersonalEmail is required");
         if (string.IsNullOrWhiteSpace(input.JobLevel))
             throw new ArgumentException("JobLevel is required");
         if (string.IsNullOrWhiteSpace(input.EmployeeType))
@@ -196,8 +200,9 @@ public class EmployeeService : IEmployeeService
         if (string.IsNullOrWhiteSpace(input.TimeType))
             throw new ArgumentException("TimeType is required");
 
-        if (await _repo.ExistsByEmailAsync(input.Email.Trim()))
-            throw new InvalidOperationException("Employee with this email already exists");
+        // Check if generated work email already exists
+        if (await _repo.ExistsByEmailAsync(workEmail))
+            throw new InvalidOperationException($"Employee with work email {workEmail} already exists");
 
         // Validate foreign keys
         var department = await _db.Departments.FindAsync(input.DepartmentId)
@@ -211,6 +216,27 @@ public class EmployeeService : IEmployeeService
             var manager = await _repo.GetByIdAsync(input.ManagerId.Value)
                 ?? throw new ArgumentException($"Manager with ID {input.ManagerId} does not exist");
         }
+    }
+
+    /// <summary>
+    /// Generates a work email from the full name (e.g., "John Doe" → "john.doe@hrms.com")
+    /// </summary>
+    private static string GenerateWorkEmail(string fullName)
+    {
+        // Normalize: lowercase, replace spaces with dots, remove special characters
+        var normalized = fullName.Trim().ToLowerInvariant();
+
+        // Replace multiple spaces with single space, then replace space with dot
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\s+", ".");
+
+        // Remove any characters that are not letters, numbers, or dots
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"[^a-z0-9.]", "");
+
+        // Remove consecutive dots and trim dots from start/end
+        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\.+", ".");
+        normalized = normalized.Trim('.');
+
+        return $"{normalized}@hrms.com";
     }
 
     private async Task<string?> RegisterAuthAccountAsync(Models.Employee employee)
@@ -240,7 +266,10 @@ public class EmployeeService : IEmployeeService
     {
         try
         {
-            var personalEmail = employee.PersonalEmail ?? employee.Email;
+            // Personal email is required for initial profile creation
+            var personalEmail = employee.PersonalEmail
+                ?? throw new InvalidOperationException("Personal email is required to send onboarding email");
+
             var onboardingLink = _tokenService.GenerateOnboardingLink(employee.Id);
 
             var emailData = new OnboardingEmailData(
@@ -260,7 +289,7 @@ public class EmployeeService : IEmployeeService
 
             await _messageProducer.PublishMessage(emailEvent, SEND_EMAIL_QUEUE);
             _logger.LogInformation(
-                "Published onboarding email event for employee {EmployeeId} to {PersonalEmail}",
+                "Published onboarding email event for employee {EmployeeId} to personal email {PersonalEmail}",
                 employee.Id, personalEmail);
         }
         catch (Exception ex)
