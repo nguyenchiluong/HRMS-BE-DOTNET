@@ -1,25 +1,25 @@
 services:
   # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: hrms-profile-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: hrms
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dinh100110
-      POSTGRES_ROOT_PASSWORD: root_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - hrms-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d hrms"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: hrms-profile-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: hrms
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: dinh100110
+  #     POSTGRES_ROOT_PASSWORD: root_password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - hrms-network
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres -d hrms"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # PgAdmin (Database Management UI - Optional)
   pgadmin:
@@ -36,44 +36,43 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     networks:
       - hrms-network
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
 
   # RabbitMQ Message Broker
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq_broker
-    ports:
-      - "5672:5672" # AMQP port for client connections
-      - "15672:15672" # Management UI[](http://localhost:15672)
-    environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-      - RABBITMQ_DEFAULT_VHOST=/
-    # Automatically declare the sendEmail topic exchange when RabbitMQ starts
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
-      - ./definitions.json:/etc/rabbitmq/definitions.json
-    networks:
-      - hrms-network
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+  # rabbitmq:
+  #   image: rabbitmq:3-management
+  #   container_name: rabbitmq_broker
+  #   ports:
+  #     - "5672:5672" # AMQP port for client connections
+  #     - "15672:15672" # Management UI[](http://localhost:15672)
+  #   environment:
+  #     - RABBITMQ_DEFAULT_USER=guest
+  #     - RABBITMQ_DEFAULT_PASS=guest
+  #     - RABBITMQ_DEFAULT_VHOST=/
+  #   # Automatically declare the sendEmail topic exchange when RabbitMQ starts
+  #   volumes:
+  #     - rabbitmq_data:/var/lib/rabbitmq
+  #     - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+  #     - ./definitions.json:/etc/rabbitmq/definitions.json
+  #   networks:
+  #     - hrms-network
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmq-diagnostics", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
 
 volumes:
-  postgres_data:
-    driver: local
+  # postgres_data:
+  #   driver: local
   pgadmin_data:
     driver: local
-  rabbitmq_data:
-    driver: local
+  # rabbitmq_data:
+  #   driver: local
 
 networks:
   hrms-network:
-    driver: bridge
-    name: hrms-network
+    external: true
