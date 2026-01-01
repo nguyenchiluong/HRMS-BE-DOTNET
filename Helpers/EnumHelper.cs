@@ -8,12 +8,20 @@ public static class EnumHelper
     {
         return value.ToUpper() switch
         {
-            "LEAVE" => RequestType.Leave,
-            "SICK_LEAVE" or "SICKLEAVE" => RequestType.SickLeave,
-            "WFH" => RequestType.WFH,
-            "TIMESHEET" => RequestType.Timesheet,
+            // Time-Off types
+            "PAID_LEAVE" or "PAIDLEAVE" => RequestType.PaidLeave,
+            "UNPAID_LEAVE" or "UNPAIDLEAVE" => RequestType.UnpaidLeave,
+            "PAID_SICK_LEAVE" or "PAIDSICKLEAVE" => RequestType.PaidSickLeave,
+            "UNPAID_SICK_LEAVE" or "UNPAIDSICKLEAVE" => RequestType.UnpaidSickLeave,
+            "WFH" or "WORK_FROM_HOME" or "WORKFROMHOME" => RequestType.WorkFromHome,
+            
+            // Timesheet types
+            "TIMESHEET_WEEKLY" or "TIMESHEETWEEKLY" => RequestType.TimesheetWeekly,
+            
+            // Profile update types
             "PROFILE_UPDATE" or "PROFILEUPDATE" => RequestType.ProfileUpdate,
             "ID_UPDATE" or "IDUPDATE" => RequestType.IdUpdate,
+            
             _ => Enum.Parse<RequestType>(value, ignoreCase: true)
         };
     }
@@ -34,12 +42,20 @@ public static class EnumHelper
     {
         return requestType switch
         {
-            RequestType.Leave => "LEAVE",
-            RequestType.SickLeave => "SICK_LEAVE",
-            RequestType.WFH => "WFH",
-            RequestType.Timesheet => "TIMESHEET",
+            // Time-Off types
+            RequestType.PaidLeave => "PAID_LEAVE",
+            RequestType.UnpaidLeave => "UNPAID_LEAVE",
+            RequestType.PaidSickLeave => "PAID_SICK_LEAVE",
+            RequestType.UnpaidSickLeave => "UNPAID_SICK_LEAVE",
+            RequestType.WorkFromHome => "WFH",
+            
+            // Timesheet types
+            RequestType.TimesheetWeekly => "TIMESHEET_WEEKLY",
+            
+            // Profile update types
             RequestType.ProfileUpdate => "PROFILE_UPDATE",
             RequestType.IdUpdate => "ID_UPDATE",
+            
             _ => requestType.ToString().ToUpper()
         };
     }

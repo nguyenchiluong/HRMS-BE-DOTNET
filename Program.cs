@@ -6,6 +6,7 @@ using EmployeeApi.Data;
 using EmployeeApi.Repositories;
 using EmployeeApi.Services;
 using EmployeeApi.Services.Employee;
+using EmployeeApi.Services.Timesheet;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -81,6 +82,8 @@ builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<ITimesheetRepository, TimesheetRepository>();
+builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
 
 // Auth Service HttpClient

@@ -153,8 +153,8 @@ public class RequestRepository : IRequestRepository
         if (!string.IsNullOrEmpty(month))
         {
             var date = DateTime.Parse(month + "-01");
-            var startOfMonth = new DateTime(date.Year, date.Month, 1);
-            var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+            var startOfMonth = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var endOfMonth = new DateTime(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 23, 59, 59, 999, DateTimeKind.Utc);
             query = query.Where(r => r.CreatedAt >= startOfMonth && r.CreatedAt <= endOfMonth);
         }
 
@@ -187,8 +187,8 @@ public class RequestRepository : IRequestRepository
         if (!string.IsNullOrEmpty(month))
         {
             var date = DateTime.Parse(month + "-01");
-            var startOfMonth = new DateTime(date.Year, date.Month, 1);
-            var endOfMonth = startOfMonth.AddMonths(1).AddDays(-1);
+            var startOfMonth = new DateTime(date.Year, date.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+            var endOfMonth = new DateTime(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month), 23, 59, 59, 999, DateTimeKind.Utc);
             query = query.Where(r => r.CreatedAt >= startOfMonth && r.CreatedAt <= endOfMonth);
         }
 

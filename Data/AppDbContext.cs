@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<Education> Educations => Set<Education>();
     public DbSet<Request> Requests => Set<Request>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+    public DbSet<TimesheetTask> TimesheetTasks => Set<TimesheetTask>();
+    public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +33,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AttendanceRecord>().ToTable("attendance_record");
         modelBuilder.Entity<Position>().ToTable("position");
         modelBuilder.Entity<Department>().ToTable("department");
+        modelBuilder.Entity<TimesheetTask>().ToTable("timesheet_task");
+        modelBuilder.Entity<TimesheetEntry>().ToTable("timesheet_entry");
 
         // Relationships per external schema
         modelBuilder.Entity<Employee>()
@@ -119,5 +123,61 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<BankAccount>()
             .HasIndex(b => b.AccountNumber)
             .IsUnique();
+
+        // ========================================
+        // TimesheetTask Configuration
+        // ========================================
+        modelBuilder.Entity<TimesheetTask>()
+            .HasIndex(t => t.TaskCode)
+            .IsUnique();
+
+        modelBuilder.Entity<TimesheetTask>()
+            .HasIndex(t => t.IsActive);
+
+        // ========================================
+        // TimesheetEntry Configuration
+        // ========================================
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasOne(te => te.Request)
+            .WithMany(r => r.TimesheetEntries)
+            .HasForeignKey(te => te.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasOne(te => te.Employee)
+            .WithMany()
+            .HasForeignKey(te => te.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasOne(te => te.Task)
+            .WithMany(t => t.TimesheetEntries)
+            .HasForeignKey(te => te.TaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Indexes for better query performance
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasIndex(te => te.RequestId);
+
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasIndex(te => te.EmployeeId);
+
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasIndex(te => new { te.WeekStartDate, te.WeekEndDate });
+
+        // Unique constraint: one entry per employee/task/week
+        modelBuilder.Entity<TimesheetEntry>()
+            .HasIndex(te => new { te.EmployeeId, te.TaskId, te.WeekStartDate })
+            .IsUnique();
+
+        // Check constraints
+        modelBuilder.Entity<TimesheetEntry>()
+            .ToTable(t => t.HasCheckConstraint("chk_hours", "hours >= 0 AND hours <= 168"));
+
+        modelBuilder.Entity<TimesheetEntry>()
+            .ToTable(t => t.HasCheckConstraint("chk_entry_type", "entry_type IN ('project', 'leave')"));
+
+        modelBuilder.Entity<TimesheetTask>()
+            .ToTable(t => t.HasCheckConstraint("chk_task_type", "task_type IN ('project', 'leave')"));
     }
 }
