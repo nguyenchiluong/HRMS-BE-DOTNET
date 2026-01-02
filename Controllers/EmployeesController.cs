@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using EmployeeApi.Dtos;
 using EmployeeApi.Services.Employee;
+using EmployeeApi.Extensions;
 
 namespace EmployeeApi.Controllers;
 
@@ -90,6 +91,95 @@ public class EmployeesController : ControllerBase
     {
         var dto = await _service.GetOneAsync(id);
         return dto is null ? NotFound() : Ok(dto);
+    }
+
+    /// <summary>
+    /// Gets the current authenticated employee's information from JWT token
+    /// </summary>
+    [HttpGet("me")]
+    public async Task<ActionResult<EmployeeDto>> GetCurrentEmployee()
+    {
+        try
+        {
+            var employeeId = User.TryGetEmployeeId();
+            
+            if (employeeId == null)
+            {
+                return Unauthorized(new { message = "Employee ID not found in token" });
+            }
+
+            var dto = await _service.GetOneAsync(employeeId.Value);
+            
+            if (dto == null)
+            {
+                return NotFound(new { message = "Employee not found" });
+            }
+
+            return Ok(dto);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Updates the current authenticated employee's profile information
+    /// </summary>
+    /// <remarks>
+    /// Sample request:
+    ///
+    ///     PUT /api/employees/me
+    ///     Authorization: Bearer {your-jwt-token}
+    ///     Content-Type: application/json
+    ///     
+    ///     {
+    ///       "firstName": "John",
+    ///       "lastName": "Doe",
+    ///       "phone": "+1234567890",
+    ///       "personalEmail": "john.doe@personal.com",
+    ///       "currentAddress": "123 Main St, City, Country"
+    ///     }
+    ///
+    /// Allows employees to update their personal information. Only the fields provided will be updated.
+    /// </remarks>
+    /// <response code="200">Successfully updated the employee profile</response>
+    /// <response code="400">Invalid input data</response>
+    /// <response code="401">Employee ID not found in JWT token or authentication failed</response>
+    /// <response code="404">Employee record not found in the database</response>
+    /// <response code="500">Internal server error occurred</response>
+    [HttpPut("me")]
+    [ProducesResponseType(typeof(EmployeeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<EmployeeDto>> UpdateCurrentEmployeeProfile([FromBody] UpdateProfileDto input)
+    {
+        try
+        {
+            var employeeId = User.TryGetEmployeeId();
+            
+            if (employeeId == null)
+            {
+                return Unauthorized(new { message = "Employee ID not found in token" });
+            }
+
+            var dto = await _service.UpdateProfileAsync(employeeId.Value, input);
+            return Ok(dto);
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
     }
 
     /// <summary>

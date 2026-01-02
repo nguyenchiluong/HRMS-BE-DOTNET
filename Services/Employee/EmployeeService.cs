@@ -423,6 +423,63 @@ public class EmployeeService : IEmployeeService
         await _db.BankAccounts.AddAsync(bankAccount);
     }
 
+    public async Task<EmployeeDto> UpdateProfileAsync(long employeeId, UpdateProfileDto input)
+    {
+        var employee = await _repo.GetByIdAsync(employeeId)
+            ?? throw new KeyNotFoundException("Employee not found");
+
+        // Update personal details
+        if (!string.IsNullOrWhiteSpace(input.FirstName))
+            employee.FirstName = input.FirstName.Trim();
+        if (!string.IsNullOrWhiteSpace(input.LastName))
+            employee.LastName = input.LastName.Trim();
+        if (input.PreferredName != null)
+            employee.PreferredName = string.IsNullOrWhiteSpace(input.PreferredName) ? null : input.PreferredName.Trim();
+        if (input.Sex != null)
+            employee.Sex = input.Sex;
+        if (input.DateOfBirth.HasValue)
+            employee.DateOfBirth = input.DateOfBirth;
+        if (input.MaritalStatus != null)
+            employee.MaritalStatus = input.MaritalStatus;
+        if (input.Pronoun != null)
+            employee.Pronoun = input.Pronoun;
+        if (input.PersonalEmail != null)
+            employee.PersonalEmail = string.IsNullOrWhiteSpace(input.PersonalEmail) ? null : input.PersonalEmail.Trim();
+        if (input.Phone != null)
+            employee.Phone = string.IsNullOrWhiteSpace(input.Phone) ? null : input.Phone.Trim();
+        if (input.Phone2 != null)
+            employee.Phone2 = string.IsNullOrWhiteSpace(input.Phone2) ? null : input.Phone2.Trim();
+
+        // Update addresses
+        if (input.PermanentAddress != null)
+            employee.PermanentAddress = string.IsNullOrWhiteSpace(input.PermanentAddress) ? null : input.PermanentAddress.Trim();
+        if (input.CurrentAddress != null)
+            employee.CurrentAddress = string.IsNullOrWhiteSpace(input.CurrentAddress) ? null : input.CurrentAddress.Trim();
+
+        // Update National ID
+        if (input.NationalId != null)
+        {
+            employee.NationalIdCountry = input.NationalId.Country;
+            employee.NationalIdNumber = input.NationalId.Number;
+            employee.NationalIdIssuedDate = input.NationalId.IssuedDate;
+            employee.NationalIdExpirationDate = input.NationalId.ExpirationDate;
+            employee.NationalIdIssuedBy = input.NationalId.IssuedBy;
+        }
+
+        // Update Social Insurance & Tax
+        if (input.SocialInsuranceNumber != null)
+            employee.SocialInsuranceNumber = string.IsNullOrWhiteSpace(input.SocialInsuranceNumber) ? null : input.SocialInsuranceNumber.Trim();
+        if (input.TaxId != null)
+            employee.TaxId = string.IsNullOrWhiteSpace(input.TaxId) ? null : input.TaxId.Trim();
+
+        employee.UpdatedAt = DateTime.Now;
+
+        _repo.Update(employee);
+        await _repo.SaveChangesAsync();
+
+        return EmployeeMapper.ToDto(employee);
+    }
+
     #endregion
 }
 
