@@ -3,6 +3,7 @@ using System;
 using EmployeeApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EmployeeApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260102080842_SeedRequestTypeData")]
+    partial class SeedRequestTypeData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -469,9 +472,14 @@ namespace EmployeeApi.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("rejection_reason");
 
-                    b.Property<long>("RequestTypeId")
+                    b.Property<long?>("RequestTypeId")
                         .HasColumnType("bigint")
                         .HasColumnName("request_type_id");
+
+                    b.Property<string>("RequestTypeString")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("request_type");
 
                     b.Property<DateTime>("RequestedAt")
                         .HasColumnType("timestamp with time zone")
@@ -533,6 +541,11 @@ namespace EmployeeApi.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
+
+                    b.Property<string>("KebabCase")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("kebab_case");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -812,8 +825,7 @@ namespace EmployeeApi.Migrations
                     b.HasOne("EmployeeApi.Models.RequestTypeLookup", "RequestTypeLookup")
                         .WithMany()
                         .HasForeignKey("RequestTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("EmployeeApi.Models.Employee", "Requester")
                         .WithMany()

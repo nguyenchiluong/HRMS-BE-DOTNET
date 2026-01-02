@@ -13,6 +13,7 @@ public class TimesheetService : ITimesheetService
     private readonly ITimesheetRepository _timesheetRepository;
     private readonly IRequestRepository _requestRepository;
     private readonly IEmployeeRepository _employeeRepository;
+    private readonly IRequestTypeRepository _requestTypeRepository;
     private readonly ILogger<TimesheetService> _logger;
 
     private const decimal MAX_HOURS_PER_WEEK = 168m; // 7 days * 24 hours
@@ -22,11 +23,13 @@ public class TimesheetService : ITimesheetService
         ITimesheetRepository timesheetRepository,
         IRequestRepository requestRepository,
         IEmployeeRepository employeeRepository,
+        IRequestTypeRepository requestTypeRepository,
         ILogger<TimesheetService> logger)
     {
         _timesheetRepository = timesheetRepository;
         _requestRepository = requestRepository;
         _employeeRepository = employeeRepository;
+        _requestTypeRepository = requestTypeRepository;
         _logger = logger;
     }
 
@@ -43,11 +46,11 @@ public class TimesheetService : ITimesheetService
         if (await _timesheetRepository.ExistsForWeekAsync(employeeId, weekStartDate))
         {
             var existingRequestId = await _timesheetRepository.GetRequestIdForWeekAsync(employeeId, weekStartDate);
-            
+
             if (existingRequestId.HasValue)
             {
                 var existingRequest = await _requestRepository.GetRequestByIdAsync(existingRequestId.Value);
-                
+
                 // Allow resubmission if the existing timesheet is CANCELLED
                 if (existingRequest != null && existingRequest.Status == RequestStatus.Cancelled)
                 {
@@ -109,9 +112,16 @@ public class TimesheetService : ITimesheetService
             ? dto.WeekEndDate
             : DateTime.SpecifyKind(dto.WeekEndDate.Date, DateTimeKind.Utc);
 
+        // Look up timesheet request type
+        var timesheetRequestType = await _requestTypeRepository.GetRequestTypeByCodeAsync("TIMESHEET_WEEKLY");
+        if (timesheetRequestType == null)
+        {
+            throw new InvalidOperationException("Timesheet request type not found in database");
+        }
+
         var request = new Request
         {
-            RequestType = RequestType.TimesheetWeekly,
+            RequestTypeId = timesheetRequestType.Id,
             RequesterEmployeeId = employeeId,
             ApproverEmployeeId = employee.ManagerId,
             Status = RequestStatus.Pending,
@@ -245,7 +255,7 @@ public class TimesheetService : ITimesheetService
     public async Task<TimesheetResponse?> GetTimesheetByIdAsync(int requestId)
     {
         var request = await _requestRepository.GetRequestByIdAsync(requestId);
-        if (request == null || request.RequestType != RequestType.TimesheetWeekly)
+        if (request == null || request.RequestTypeLookup?.Code != "TIMESHEET_WEEKLY")
         {
             return null;
         }
@@ -315,7 +325,7 @@ public class TimesheetService : ITimesheetService
     public async Task<TimesheetResponse> ApproveTimesheetAsync(int requestId, long approverId, string? comment)
     {
         var request = await _requestRepository.GetRequestByIdAsync(requestId);
-        if (request == null || request.RequestType != RequestType.TimesheetWeekly)
+        if (request == null || request.RequestTypeLookup?.Code != "TIMESHEET_WEEKLY")
         {
             throw new InvalidOperationException("Timesheet request not found");
         }
@@ -338,7 +348,7 @@ public class TimesheetService : ITimesheetService
     public async Task<TimesheetResponse> RejectTimesheetAsync(int requestId, long approverId, string reason)
     {
         var request = await _requestRepository.GetRequestByIdAsync(requestId);
-        if (request == null || request.RequestType != RequestType.TimesheetWeekly)
+        if (request == null || request.RequestTypeLookup?.Code != "TIMESHEET_WEEKLY")
         {
             throw new InvalidOperationException("Timesheet request not found");
         }
@@ -361,7 +371,7 @@ public class TimesheetService : ITimesheetService
     public async Task<TimesheetResponse> CancelTimesheetAsync(int requestId, long employeeId)
     {
         var request = await _requestRepository.GetRequestByIdAsync(requestId);
-        if (request == null || request.RequestType != RequestType.TimesheetWeekly)
+        if (request == null || request.RequestTypeLookup?.Code != "TIMESHEET_WEEKLY")
         {
             throw new InvalidOperationException("Timesheet request not found");
         }

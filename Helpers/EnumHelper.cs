@@ -6,7 +6,7 @@ public static class EnumHelper
 {
     public static RequestType ParseRequestType(string value)
     {
-        return value.ToUpper() switch
+        return value.ToUpper().Replace("-", "_") switch
         {
             // Time-Off types
             "PAID_LEAVE" or "PAIDLEAVE" => RequestType.PaidLeave,
@@ -22,7 +22,7 @@ public static class EnumHelper
             "PROFILE_UPDATE" or "PROFILEUPDATE" => RequestType.ProfileUpdate,
             "ID_UPDATE" or "IDUPDATE" => RequestType.IdUpdate,
             
-            _ => Enum.Parse<RequestType>(value, ignoreCase: true)
+            _ => Enum.Parse<RequestType>(value.Replace("-", "_"), ignoreCase: true)
         };
     }
 
@@ -59,6 +59,7 @@ public static class EnumHelper
             _ => requestType.ToString().ToUpper()
         };
     }
+
 
     public static string ToApiString(this RequestStatus status)
     {

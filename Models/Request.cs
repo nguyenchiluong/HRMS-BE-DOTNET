@@ -10,9 +10,13 @@ public class Request
     [Column("id")]
     public int Id { get; set; }
 
+    // Foreign key to request_type table
     [Required]
-    [Column("request_type")]
-    public RequestType RequestType { get; set; }
+    [Column("request_type_id")]
+    public long RequestTypeId { get; set; }
+
+    [ForeignKey(nameof(RequestTypeId))]
+    public RequestTypeLookup? RequestTypeLookup { get; set; }
 
     [Required]
     [Column("requester_employee_id")]
@@ -61,7 +65,7 @@ public class Request
 
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    
+
     // Navigation property for timesheet entries
     public ICollection<TimesheetEntry>? TimesheetEntries { get; set; }
 }

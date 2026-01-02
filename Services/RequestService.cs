@@ -10,10 +10,14 @@ namespace EmployeeApi.Services;
 public class RequestService : IRequestService
 {
     private readonly IRequestRepository _requestRepository;
+    private readonly IRequestTypeRepository _requestTypeRepository;
 
-    public RequestService(IRequestRepository requestRepository)
+    public RequestService(
+        IRequestRepository requestRepository,
+        IRequestTypeRepository requestTypeRepository)
     {
         _requestRepository = requestRepository;
+        _requestTypeRepository = requestTypeRepository;
     }
 
     public async Task<PaginatedResponseDto<RequestDto>> GetRequestsAsync(
@@ -59,12 +63,28 @@ public class RequestService : IRequestService
 
     public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId)
     {
+        // Look up request type from database
+        var normalizedType = dto.RequestType.ToUpper().Replace("-", "_");
+        var requestTypeLookup = await _requestTypeRepository.GetRequestTypeByCodeAsync(normalizedType);
+        if (requestTypeLookup == null)
+        {
+            throw new ArgumentException($"Invalid request type: {dto.RequestType}");
+        }
+
+        // Ensure DateTime values are UTC for PostgreSQL compatibility
+        var effectiveFrom = dto.EffectiveFrom.HasValue
+            ? DateTime.SpecifyKind(dto.EffectiveFrom.Value, DateTimeKind.Utc)
+            : (DateTime?)null;
+        var effectiveTo = dto.EffectiveTo.HasValue
+            ? DateTime.SpecifyKind(dto.EffectiveTo.Value, DateTimeKind.Utc)
+            : (DateTime?)null;
+
         var request = new Request
         {
-            RequestType = EnumHelper.ParseRequestType(dto.RequestType),
+            RequestTypeId = requestTypeLookup.Id,
             RequesterEmployeeId = requesterEmployeeId,
-            EffectiveFrom = dto.EffectiveFrom,
-            EffectiveTo = dto.EffectiveTo,
+            EffectiveFrom = effectiveFrom,
+            EffectiveTo = effectiveTo,
             Reason = dto.Reason,
             Payload = dto.Payload.HasValue ? JsonSerializer.Serialize(dto.Payload.Value) : null,
             Status = RequestStatus.Pending,
@@ -97,12 +117,12 @@ public class RequestService : IRequestService
 
         if (dto.EffectiveFrom.HasValue)
         {
-            request.EffectiveFrom = dto.EffectiveFrom;
+            request.EffectiveFrom = DateTime.SpecifyKind(dto.EffectiveFrom.Value, DateTimeKind.Utc);
         }
 
         if (dto.EffectiveTo.HasValue)
         {
-            request.EffectiveTo = dto.EffectiveTo;
+            request.EffectiveTo = DateTime.SpecifyKind(dto.EffectiveTo.Value, DateTimeKind.Utc);
         }
 
         if (!string.IsNullOrEmpty(dto.Reason))
@@ -213,7 +233,7 @@ public class RequestService : IRequestService
         return new RequestDto
         {
             Id = request.Id,
-            RequestType = request.RequestType.ToApiString(),
+            RequestType = request.RequestTypeLookup?.Code ?? "UNKNOWN",
             RequesterEmployeeId = request.RequesterEmployeeId,
             ApproverEmployeeId = request.ApproverEmployeeId,
             Status = request.Status.ToApiString(),
@@ -231,7 +251,7 @@ public class RequestService : IRequestService
         return new RequestDetailsDto
         {
             Id = request.Id,
-            RequestType = request.RequestType.ToApiString(),
+            RequestType = request.RequestTypeLookup?.Code ?? "UNKNOWN",
             RequesterEmployeeId = request.RequesterEmployeeId,
             ApproverEmployeeId = request.ApproverEmployeeId,
             Status = request.Status.ToApiString(),

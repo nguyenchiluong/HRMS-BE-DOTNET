@@ -101,6 +101,74 @@ public class StatusCountDto
     public int Cancelled { get; set; }
 }
 
+// Time-Off Request DTOs
+public class SubmitTimeOffRequestDto
+{
+    [Required]
+    public string Type { get; set; } = default!; // "PAID_LEAVE", "UNPAID_LEAVE", "PAID_SICK_LEAVE", "UNPAID_SICK_LEAVE", "WFH"
+
+    [Required]
+    public DateOnly StartDate { get; set; }
+
+    [Required]
+    public DateOnly EndDate { get; set; }
+
+    [Required]
+    [MinLength(10)]
+    public string Reason { get; set; } = default!;
+}
+
+public class TimeOffRequestResponseDto
+{
+    public string Id { get; set; } = default!; // "REQ-001"
+    public string Type { get; set; } = default!;
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public int Duration { get; set; }
+    public DateTime SubmittedDate { get; set; }
+    public string Status { get; set; } = default!;
+    public string Reason { get; set; } = default!;
+    public List<string>? Attachments { get; set; }
+    public string? Message { get; set; }
+}
+
+public class LeaveBalanceDto
+{
+    public string Type { get; set; } = default!; // "Annual Leave", "Sick Leave", "Parental Leave", "Other Leave"
+    public decimal Total { get; set; }
+    public decimal Used { get; set; }
+    public decimal Remaining { get; set; }
+}
+
+public class LeaveBalancesResponseDto
+{
+    public List<LeaveBalanceDto> Balances { get; set; } = new();
+}
+
+public class TimeOffRequestHistoryDto
+{
+    public string Id { get; set; } = default!;
+    public string Type { get; set; } = default!;
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public int Duration { get; set; }
+    public DateTime SubmittedDate { get; set; }
+    public string Status { get; set; } = default!;
+    public string Reason { get; set; } = default!;
+    public List<string>? Attachments { get; set; }
+}
+
+public class TimeOffRequestHistoryResponseDto
+{
+    public List<TimeOffRequestHistoryDto> Data { get; set; } = new();
+    public PaginationDto Pagination { get; set; } = new();
+}
+
+public class CancelTimeOffRequestDto
+{
+    public string? Comment { get; set; }
+}
+
 // Attendance DTOs
 public class CheckInDto
 {
