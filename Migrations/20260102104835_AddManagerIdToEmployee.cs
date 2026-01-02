@@ -5,7 +5,7 @@
 namespace EmployeeApi.Migrations
 {
     /// <inheritdoc />
-    public partial class RemoveKebabCaseField : Migration
+    public partial class AddManagerIdToEmployee : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

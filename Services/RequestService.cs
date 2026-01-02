@@ -23,19 +23,21 @@ public class RequestService : IRequestService
     public async Task<PaginatedResponseDto<RequestDto>> GetRequestsAsync(
         long? employeeId = null,
         string? status = null,
-        string? requestType = null,
+        string? category = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,
-        int limit = 20)
+        int limit = 20,
+        long? managerId = null,
+        bool filterByManagerReports = false)
     {
         var requests = await _requestRepository.GetRequestsAsync(
-            employeeId, status, requestType, dateFrom, dateTo, page, limit);
+            employeeId, status, category, dateFrom, dateTo, page, limit, managerId, filterByManagerReports);
 
         var totalCount = await _requestRepository.GetRequestsCountAsync(
-            employeeId, status, requestType, dateFrom, dateTo);
+            employeeId, status, category, dateFrom, dateTo, managerId, filterByManagerReports);
 
-        var requestDtos = requests.Select(MapToRequestDto).ToList();
+        var requestDtos = requests.Select(r => MapToRequestDto(r)).ToList();
 
         return new PaginatedResponseDto<RequestDto>
         {
@@ -175,6 +177,21 @@ public class RequestService : IRequestService
             throw new InvalidOperationException("Only PENDING requests can be approved");
         }
 
+        // Verify manager relationship for approval request types
+        var requestTypeCode = request.RequestTypeLookup?.Code?.ToUpper() ?? "";
+        var isApprovalRequest = IsApprovalRequestType(requestTypeCode);
+
+        if (isApprovalRequest)
+        {
+            var isEmployeeUnderManager = await _requestRepository.IsEmployeeUnderManagerAsync(
+                request.RequesterEmployeeId, approverEmployeeId);
+
+            if (!isEmployeeUnderManager)
+            {
+                throw new UnauthorizedAccessException("Cannot approve request from employee outside your team");
+            }
+        }
+
         request.Status = RequestStatus.Approved;
         request.ApproverEmployeeId = approverEmployeeId;
         request.ApprovalComment = comment;
@@ -194,6 +211,21 @@ public class RequestService : IRequestService
         if (request.Status != RequestStatus.Pending)
         {
             throw new InvalidOperationException("Only PENDING requests can be rejected");
+        }
+
+        // Verify manager relationship for approval request types
+        var requestTypeCode = request.RequestTypeLookup?.Code?.ToUpper() ?? "";
+        var isApprovalRequest = IsApprovalRequestType(requestTypeCode);
+
+        if (isApprovalRequest)
+        {
+            var isEmployeeUnderManager = await _requestRepository.IsEmployeeUnderManagerAsync(
+                request.RequesterEmployeeId, approverEmployeeId);
+
+            if (!isEmployeeUnderManager)
+            {
+                throw new UnauthorizedAccessException("Cannot reject request from employee outside your team");
+            }
         }
 
         request.Status = RequestStatus.Rejected;
@@ -230,20 +262,107 @@ public class RequestService : IRequestService
 
     private RequestDto MapToRequestDto(Request request)
     {
+        var requestTypeCode = request.RequestTypeLookup?.Code ?? "UNKNOWN";
+        var isTimeOffRequest = IsTimeOffRequestType(requestTypeCode);
+
+        // Extract attachments from payload
+        var attachments = ExtractAttachments(request.Payload);
+
+        // Calculate duration for time-off requests
+        int? duration = null;
+        if (isTimeOffRequest && request.EffectiveFrom.HasValue && request.EffectiveTo.HasValue)
+        {
+            duration = CalculateDuration(request.EffectiveFrom.Value, request.EffectiveTo.Value);
+        }
+
+        // Format dates
+        string? startDate = null;
+        string? endDate = null;
+        if (isTimeOffRequest && request.EffectiveFrom.HasValue && request.EffectiveTo.HasValue)
+        {
+            startDate = request.EffectiveFrom.Value.ToString("yyyy-MM-dd");
+            endDate = request.EffectiveTo.Value.ToString("yyyy-MM-dd");
+        }
+
+        // Get employee information
+        var employee = request.Requester;
+
         return new RequestDto
         {
-            Id = request.Id,
-            RequestType = request.RequestTypeLookup?.Code ?? "UNKNOWN",
-            RequesterEmployeeId = request.RequesterEmployeeId,
-            ApproverEmployeeId = request.ApproverEmployeeId,
+            Id = request.Id.ToString(),
+            Type = requestTypeCode,
+            EmployeeId = request.RequesterEmployeeId.ToString(),
+            EmployeeName = employee?.FullName,
+            EmployeeEmail = employee?.Email,
+            EmployeeAvatar = null, // TODO: Add avatar URL if available
+            Department = employee?.Department?.Name,
             Status = request.Status.ToApiString(),
-            RequestedAt = request.RequestedAt,
-            EffectiveFrom = request.EffectiveFrom,
-            EffectiveTo = request.EffectiveTo,
+            StartDate = startDate,
+            EndDate = endDate,
+            Duration = duration,
+            SubmittedDate = request.RequestedAt.ToString("O"), // ISO 8601 format
             Reason = request.Reason,
-            CreatedAt = request.CreatedAt,
-            UpdatedAt = request.UpdatedAt
+            Attachments = attachments
         };
+    }
+
+    private bool IsApprovalRequestType(string requestTypeCode)
+    {
+        var normalized = requestTypeCode.ToUpper();
+        return normalized == "TIMESHEET_WEEKLY" ||
+               normalized == "PAID_LEAVE" ||
+               normalized == "UNPAID_LEAVE" ||
+               normalized == "PAID_SICK_LEAVE" ||
+               normalized == "UNPAID_SICK_LEAVE" ||
+               normalized == "WFH";
+    }
+
+    private bool IsTimeOffRequestType(string requestTypeCode)
+    {
+        var normalized = requestTypeCode.ToUpper();
+        return normalized == "PAID_LEAVE" ||
+               normalized == "UNPAID_LEAVE" ||
+               normalized == "PAID_SICK_LEAVE" ||
+               normalized == "UNPAID_SICK_LEAVE" ||
+               normalized == "WFH";
+    }
+
+    private List<string> ExtractAttachments(string? payload)
+    {
+        if (string.IsNullOrEmpty(payload))
+        {
+            return new List<string>();
+        }
+
+        try
+        {
+            var jsonDoc = JsonDocument.Parse(payload);
+            if (jsonDoc.RootElement.TryGetProperty("attachments", out var attachmentsElement))
+            {
+                if (attachmentsElement.ValueKind == JsonValueKind.Array)
+                {
+                    return attachmentsElement.EnumerateArray()
+                        .Select(a => a.GetString() ?? "")
+                        .Where(s => !string.IsNullOrEmpty(s))
+                        .ToList();
+                }
+            }
+        }
+        catch
+        {
+            // If payload parsing fails, return empty list
+        }
+
+        return new List<string>();
+    }
+
+    private int CalculateDuration(DateTime startDate, DateTime endDate)
+    {
+        // Calculate business days (excluding weekends)
+        // For simplicity, we'll calculate total days including weekends
+        // You can enhance this to exclude weekends if needed
+        var days = (endDate.Date - startDate.Date).Days + 1;
+        return Math.Max(1, days); // At least 1 day
     }
 
     private RequestDetailsDto MapToRequestDetailsDto(Request request)

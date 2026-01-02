@@ -764,7 +764,7 @@ namespace EmployeeApi.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("EmployeeApi.Models.Employee", "Manager")
-                        .WithMany()
+                        .WithMany("DirectReports")
                         .HasForeignKey("ManagerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -853,6 +853,11 @@ namespace EmployeeApi.Migrations
                     b.Navigation("Request");
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("EmployeeApi.Models.Employee", b =>
+                {
+                    b.Navigation("DirectReports");
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Request", b =>

@@ -33,17 +33,20 @@ public class UpdateRequestDto
 
 public class RequestDto
 {
-    public int Id { get; set; }
-    public string RequestType { get; set; } = default!;
-    public long RequesterEmployeeId { get; set; }
-    public long? ApproverEmployeeId { get; set; }
+    public string Id { get; set; } = default!; // String format for frontend (e.g., "REQ-001" or numeric as string)
+    public string Type { get; set; } = default!; // Request type (PAID_LEAVE, TIMESHEET_WEEKLY, etc.)
+    public string EmployeeId { get; set; } = default!; // String format
+    public string? EmployeeName { get; set; }
+    public string? EmployeeEmail { get; set; }
+    public string? EmployeeAvatar { get; set; }
+    public string? Department { get; set; }
     public string Status { get; set; } = default!;
-    public DateTime RequestedAt { get; set; }
-    public DateTime? EffectiveFrom { get; set; }
-    public DateTime? EffectiveTo { get; set; }
+    public string? StartDate { get; set; } // yyyy-MM-dd format for time-off requests
+    public string? EndDate { get; set; } // yyyy-MM-dd format for time-off requests
+    public int? Duration { get; set; } // Number of days (for time-off requests)
+    public string SubmittedDate { get; set; } = default!; // ISO timestamp
     public string Reason { get; set; } = default!;
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public List<string>? Attachments { get; set; }
 }
 
 public class RequestDetailsDto

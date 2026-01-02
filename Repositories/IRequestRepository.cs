@@ -7,18 +7,26 @@ public interface IRequestRepository
     Task<List<Request>> GetRequestsAsync(
         long? employeeId = null,
         string? status = null,
-        string? requestType = null,
+        string? category = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,
-        int limit = 20);
+        int limit = 20,
+        long? managerId = null,
+        bool filterByManagerReports = false);
 
     Task<int> GetRequestsCountAsync(
         long? employeeId = null,
         string? status = null,
-        string? requestType = null,
+        string? category = null,
         DateTime? dateFrom = null,
-        DateTime? dateTo = null);
+        DateTime? dateTo = null,
+        long? managerId = null,
+        bool filterByManagerReports = false);
+
+    Task<List<long>> GetDirectReportEmployeeIdsAsync(long managerId);
+
+    Task<bool> IsEmployeeUnderManagerAsync(long employeeId, long managerId);
 
     Task<Request?> GetRequestByIdAsync(int id);
 

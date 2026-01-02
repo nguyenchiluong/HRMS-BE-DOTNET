@@ -103,6 +103,9 @@ public class TimesheetService : ITimesheetService
             throw new InvalidOperationException("Employee not found");
         }
 
+        // Get manager from employee's manager_id (hierarchical reporting)
+        var approverEmployeeId = employee.ManagerId;
+
         // 6. Create request record
         // Ensure DateTime values are UTC for PostgreSQL compatibility
         var effectiveFrom = dto.WeekStartDate.Kind == DateTimeKind.Utc
@@ -123,7 +126,7 @@ public class TimesheetService : ITimesheetService
         {
             RequestTypeId = timesheetRequestType.Id,
             RequesterEmployeeId = employeeId,
-            ApproverEmployeeId = employee.ManagerId,
+            ApproverEmployeeId = approverEmployeeId,
             Status = RequestStatus.Pending,
             RequestedAt = DateTime.UtcNow,
             EffectiveFrom = effectiveFrom,

@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EmployeeApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260102082350_RemoveKebabCaseField")]
-    partial class RemoveKebabCaseField
+    [Migration("20260102104835_AddManagerIdToEmployee")]
+    partial class AddManagerIdToEmployee
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -767,7 +767,7 @@ namespace EmployeeApi.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("EmployeeApi.Models.Employee", "Manager")
-                        .WithMany()
+                        .WithMany("DirectReports")
                         .HasForeignKey("ManagerId")
                         .OnDelete(DeleteBehavior.SetNull);
 
@@ -856,6 +856,11 @@ namespace EmployeeApi.Migrations
                     b.Navigation("Request");
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("EmployeeApi.Models.Employee", b =>
+                {
+                    b.Navigation("DirectReports");
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.Request", b =>

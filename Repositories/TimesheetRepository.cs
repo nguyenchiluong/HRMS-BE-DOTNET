@@ -182,7 +182,7 @@ public class TimesheetRepository : ITimesheetRepository
 
         if (approverEmployeeId.HasValue)
         {
-            // Get employees who report to this approver
+            // Get employees who report to this approver (hierarchical reporting)
             var managedEmployeeIds = await _context.Employees
                 .Where(e => e.ManagerId == approverEmployeeId.Value)
                 .Select(e => e.Id)
@@ -224,6 +224,7 @@ public class TimesheetRepository : ITimesheetRepository
 
         if (approverEmployeeId.HasValue)
         {
+            // Get employees who report to this approver (hierarchical reporting)
             var managedEmployeeIds = await _context.Employees
                 .Where(e => e.ManagerId == approverEmployeeId.Value)
                 .Select(e => e.Id)
