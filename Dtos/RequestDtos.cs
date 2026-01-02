@@ -116,6 +116,8 @@ public class SubmitTimeOffRequestDto
     [Required]
     [MinLength(10)]
     public string Reason { get; set; } = default!;
+
+    public List<string>? Attachments { get; set; } // Array of CloudFront URLs
 }
 
 public class TimeOffRequestResponseDto

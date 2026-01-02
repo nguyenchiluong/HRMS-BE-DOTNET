@@ -14,18 +14,15 @@ public class TimeOffController : ControllerBase
     private readonly ITimeOffService _timeOffService;
     private readonly IUserContextService _userContextService;
     private readonly ILogger<TimeOffController> _logger;
-    private readonly IWebHostEnvironment _environment;
 
     public TimeOffController(
         ITimeOffService timeOffService,
         IUserContextService userContextService,
-        ILogger<TimeOffController> logger,
-        IWebHostEnvironment environment)
+        ILogger<TimeOffController> logger)
     {
         _timeOffService = timeOffService;
         _userContextService = userContextService;
         _logger = logger;
-        _environment = environment;
     }
 
     /// <summary>
@@ -33,93 +30,26 @@ public class TimeOffController : ControllerBase
     /// </summary>
     [HttpPost("requests")]
     public async Task<ActionResult<TimeOffRequestResponseDto>> SubmitTimeOffRequest(
-        [FromForm] string type,
-        [FromForm] string startDate,
-        [FromForm] string endDate,
-        [FromForm] string reason,
-        [FromForm] List<IFormFile>? attachments = null)
+        [FromBody] SubmitTimeOffRequestDto dto)
     {
         try
         {
-            // Parse dates
-            if (!DateOnly.TryParse(startDate, out var startDateParsed))
-            {
-                return BadRequest(new { error = "Validation failed", message = "Invalid start date format. Use ISO format: yyyy-MM-dd", field = "startDate" });
-            }
-
-            if (!DateOnly.TryParse(endDate, out var endDateParsed))
-            {
-                return BadRequest(new { error = "Validation failed", message = "Invalid end date format. Use ISO format: yyyy-MM-dd", field = "endDate" });
-            }
-
             // Validate dates
-            if (startDateParsed > endDateParsed)
+            if (dto.StartDate > dto.EndDate)
             {
                 return BadRequest(new { error = "Validation failed", message = "Start date must be before or equal to end date", field = "startDate" });
             }
 
-            if (startDateParsed < DateOnly.FromDateTime(DateTime.UtcNow))
+            if (dto.StartDate < DateOnly.FromDateTime(DateTime.UtcNow))
             {
                 return BadRequest(new { error = "Validation failed", message = "Start date cannot be in the past", field = "startDate" });
             }
 
-            // Create DTO
-            var dto = new SubmitTimeOffRequestDto
-            {
-                Type = type,
-                StartDate = startDateParsed,
-                EndDate = endDateParsed,
-                Reason = reason
-            };
-
             // Get current user's employee ID
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
-            // Handle file uploads
-            List<string>? attachmentUrls = null;
-            if (attachments != null && attachments.Count > 0)
-            {
-                // Validate file count
-                if (attachments.Count > 5)
-                {
-                    return BadRequest(new { error = "Validation failed", message = "Maximum 5 files allowed per request" });
-                }
-
-                attachmentUrls = new List<string>();
-                var uploadsPath = Path.Combine(_environment.ContentRootPath, "uploads", "time-off-requests");
-                Directory.CreateDirectory(uploadsPath);
-
-                foreach (var file in attachments)
-                {
-                    // Validate file size (10MB max)
-                    if (file.Length > 10 * 1024 * 1024)
-                    {
-                        return BadRequest(new { error = "Validation failed", message = $"File {file.FileName} exceeds maximum size of 10MB" });
-                    }
-
-                    // Validate file type
-                    var allowedExtensions = new[] { ".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx" };
-                    var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                    if (!allowedExtensions.Contains(extension))
-                    {
-                        return BadRequest(new { error = "Validation failed", message = $"File type {extension} is not allowed. Allowed types: PDF, JPG, JPEG, PNG, DOC, DOCX" });
-                    }
-
-                    // Generate unique filename
-                    var fileName = $"{Guid.NewGuid()}{extension}";
-                    var filePath = Path.Combine(uploadsPath, fileName);
-
-                    using (var stream = new FileStream(filePath, FileMode.Create))
-                    {
-                        await file.CopyToAsync(stream);
-                    }
-
-                    // Store relative URL (in production, this should be a full URL)
-                    attachmentUrls.Add($"/uploads/time-off-requests/{fileName}");
-                }
-            }
-
-            var result = await _timeOffService.SubmitTimeOffRequestAsync(dto, currentEmployeeId, attachmentUrls);
+            // Pass attachment URLs directly from DTO (already uploaded to S3 by frontend)
+            var result = await _timeOffService.SubmitTimeOffRequestAsync(dto, currentEmployeeId, dto.Attachments);
 
             return Ok(result);
         }
