@@ -17,9 +17,11 @@ public class AppDbContext : DbContext
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<Education> Educations => Set<Education>();
     public DbSet<Request> Requests => Set<Request>();
+    public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
     public DbSet<TimesheetTask> TimesheetTasks => Set<TimesheetTask>();
     public DbSet<TimesheetEntry> TimesheetEntries => Set<TimesheetEntry>();
+    public DbSet<RequestTypeLookup> RequestTypeLookups => Set<RequestTypeLookup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +43,8 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TimeType>().ToTable("time_type");
         modelBuilder.Entity<TimesheetTask>().ToTable("timesheet_task");
         modelBuilder.Entity<TimesheetEntry>().ToTable("timesheet_entry");
+        modelBuilder.Entity<LeaveBalance>().ToTable("leave_balance");
+        modelBuilder.Entity<RequestTypeLookup>().ToTable("request_type");
 
         // Relationships per external schema
         modelBuilder.Entity<Employee>()
@@ -97,11 +101,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(ed => ed.EmployeeId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Configure enum to string conversions
-        modelBuilder.Entity<Request>()
-            .Property(r => r.RequestType)
-            .HasConversion<string>();
-
         modelBuilder.Entity<Request>()
             .Property(r => r.Status)
             .HasConversion<string>();
@@ -112,6 +111,12 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(r => r.RequesterEmployeeId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Request>()
+            .HasOne(r => r.RequestTypeLookup)
+            .WithMany()
+            .HasForeignKey(r => r.RequestTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Request>()
             .HasOne(r => r.Approver)
@@ -203,5 +208,31 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<TimesheetTask>()
             .ToTable(t => t.HasCheckConstraint("chk_task_type", "task_type IN ('project', 'leave')"));
+
+        // ========================================
+        // LeaveBalance Configuration
+        // ========================================
+        modelBuilder.Entity<LeaveBalance>()
+            .HasOne(lb => lb.Employee)
+            .WithMany()
+            .HasForeignKey(lb => lb.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<LeaveBalance>()
+            .HasIndex(lb => new { lb.EmployeeId, lb.BalanceType, lb.Year })
+            .IsUnique();
+
+        modelBuilder.Entity<LeaveBalance>()
+            .HasIndex(lb => lb.EmployeeId);
+
+        // ========================================
+        // RequestTypeLookup Configuration
+        // ========================================
+        modelBuilder.Entity<RequestTypeLookup>()
+            .HasIndex(rt => rt.Code)
+            .IsUnique();
+
+        modelBuilder.Entity<RequestTypeLookup>()
+            .HasIndex(rt => rt.IsActive);
     }
 }

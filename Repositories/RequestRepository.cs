@@ -27,6 +27,7 @@ public class RequestRepository : IRequestRepository
         var query = _context.Requests
             .Include(r => r.Requester)
             .Include(r => r.Approver)
+            .Include(r => r.RequestTypeLookup)
             .AsQueryable();
 
         if (employeeId.HasValue)
@@ -42,8 +43,10 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
-            query = query.Where(r => r.RequestType == requestTypeEnum);
+            // Normalize the request type string for comparison
+            var normalizedType = requestType.ToUpper().Replace("-", "_");
+            query = query.Where(r => r.RequestTypeLookup != null && 
+                (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
         }
 
         if (dateFrom.HasValue)
@@ -85,8 +88,10 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
-            query = query.Where(r => r.RequestType == requestTypeEnum);
+            // Normalize the request type string for comparison
+            var normalizedType = requestType.ToUpper().Replace("-", "_");
+            query = query.Where(r => r.RequestTypeLookup != null && 
+                (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
         }
 
         if (dateFrom.HasValue)
@@ -107,6 +112,7 @@ public class RequestRepository : IRequestRepository
         return await _context.Requests
             .Include(r => r.Requester)
             .Include(r => r.Approver)
+            .Include(r => r.RequestTypeLookup)
             .FirstOrDefaultAsync(r => r.Id == id);
     }
 
@@ -160,8 +166,10 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
-            query = query.Where(r => r.RequestType == requestTypeEnum);
+            // Normalize the request type string for comparison
+            var normalizedType = requestType.ToUpper().Replace("-", "_");
+            query = query.Where(r => r.RequestTypeLookup != null && 
+                (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
         }
 
         var summary = await query
@@ -194,15 +202,17 @@ public class RequestRepository : IRequestRepository
 
         if (!string.IsNullOrEmpty(requestType))
         {
-            var requestTypeEnum = EnumHelper.ParseRequestType(requestType);
-            query = query.Where(r => r.RequestType == requestTypeEnum);
+            // Normalize the request type string for comparison
+            var normalizedType = requestType.ToUpper().Replace("-", "_");
+            query = query.Where(r => r.RequestTypeLookup != null && 
+                (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
         }
 
         var summary = await query
-            .GroupBy(r => r.RequestType)
+            .GroupBy(r => r.RequestTypeLookup != null ? r.RequestTypeLookup.Code : "UNKNOWN")
             .Select(g => new { Type = g.Key, Count = g.Count() })
             .ToListAsync();
 
-        return summary.ToDictionary(s => s.Type.ToApiString(), s => s.Count);
+        return summary.ToDictionary(s => s.Type, s => s.Count);
     }
 }

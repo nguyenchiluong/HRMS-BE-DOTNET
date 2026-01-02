@@ -3,6 +3,7 @@ using System;
 using EmployeeApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EmployeeApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260102074448_AddLeaveBalanceAndRequestFields")]
+    partial class AddLeaveBalanceAndRequestFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -455,6 +458,11 @@ namespace EmployeeApi.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("effective_to");
 
+                    b.Property<string>("EmergencyContact")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("emergency_contact");
+
                     b.Property<string>("Payload")
                         .HasColumnType("jsonb")
                         .HasColumnName("payload");
@@ -469,9 +477,10 @@ namespace EmployeeApi.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("rejection_reason");
 
-                    b.Property<long>("RequestTypeId")
-                        .HasColumnType("bigint")
-                        .HasColumnName("request_type_id");
+                    b.Property<string>("RequestType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("request_type");
 
                     b.Property<DateTime>("RequestedAt")
                         .HasColumnType("timestamp with time zone")
@@ -494,68 +503,11 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("ApproverEmployeeId");
 
-                    b.HasIndex("RequestTypeId");
-
                     b.HasIndex("RequesterEmployeeId");
 
                     b.HasIndex("Status");
 
                     b.ToTable("request", "dotnet");
-                });
-
-            modelBuilder.Entity("EmployeeApi.Models.RequestTypeLookup", b =>
-                {
-                    b.Property<long>("Id")
-                        .HasColumnType("bigint")
-                        .HasColumnName("request_type_id");
-
-                    b.Property<string>("Category")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("category");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("request_type_code");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("description");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("request_type_name");
-
-                    b.Property<bool>("RequiresApproval")
-                        .HasColumnType("boolean")
-                        .HasColumnName("requires_approval");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Code")
-                        .IsUnique();
-
-                    b.HasIndex("IsActive");
-
-                    b.ToTable("request_type", "dotnet");
                 });
 
             modelBuilder.Entity("EmployeeApi.Models.TimeType", b =>
@@ -809,12 +761,6 @@ namespace EmployeeApi.Migrations
                         .HasForeignKey("ApproverEmployeeId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("EmployeeApi.Models.RequestTypeLookup", "RequestTypeLookup")
-                        .WithMany()
-                        .HasForeignKey("RequestTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("EmployeeApi.Models.Employee", "Requester")
                         .WithMany()
                         .HasForeignKey("RequesterEmployeeId")
@@ -822,8 +768,6 @@ namespace EmployeeApi.Migrations
                         .IsRequired();
 
                     b.Navigation("Approver");
-
-                    b.Navigation("RequestTypeLookup");
 
                     b.Navigation("Requester");
                 });

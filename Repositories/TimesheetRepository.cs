@@ -149,6 +149,7 @@ public class TimesheetRepository : ITimesheetRepository
             .Include(r => r.Requester)
                 .ThenInclude(e => e!.Department)
             .Include(r => r.Approver)
+            .Include(r => r.RequestTypeLookup)
             .Include(r => r.TimesheetEntries!)
                 .ThenInclude(te => te.Task)
             .OrderByDescending(r => r.CreatedAt)
@@ -174,7 +175,9 @@ public class TimesheetRepository : ITimesheetRepository
         int limit = 20)
     {
         var query = _context.Requests
-            .Where(r => r.RequestType == RequestType.TimesheetWeekly
+            .Include(r => r.RequestTypeLookup)
+            .Where(r => r.RequestTypeLookup != null
+                && r.RequestTypeLookup.Code == "TIMESHEET_WEEKLY"
                 && r.Status == RequestStatus.Pending);
 
         if (approverEmployeeId.HasValue)
@@ -214,7 +217,9 @@ public class TimesheetRepository : ITimesheetRepository
         long? departmentId = null)
     {
         var query = _context.Requests
-            .Where(r => r.RequestType == RequestType.TimesheetWeekly
+            .Include(r => r.RequestTypeLookup)
+            .Where(r => r.RequestTypeLookup != null
+                && r.RequestTypeLookup.Code == "TIMESHEET_WEEKLY"
                 && r.Status == RequestStatus.Pending);
 
         if (approverEmployeeId.HasValue)
@@ -251,7 +256,8 @@ public class TimesheetRepository : ITimesheetRepository
         string? status)
     {
         var query = _context.Requests
-            .Where(r => r.RequestType == RequestType.TimesheetWeekly);
+            .Include(r => r.RequestTypeLookup)
+            .Where(r => r.RequestTypeLookup != null && r.RequestTypeLookup.Code == "TIMESHEET_WEEKLY");
 
         if (employeeId.HasValue)
         {
