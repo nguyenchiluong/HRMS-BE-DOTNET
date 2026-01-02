@@ -120,6 +120,9 @@ public class Employee
     [ForeignKey("ManagerId")]
     public Employee? Manager { get; set; }
 
+    // Navigation property for direct reports
+    public ICollection<Employee>? DirectReports { get; set; }
+
     [Column("status")]
     public string? Status { get; set; }
 

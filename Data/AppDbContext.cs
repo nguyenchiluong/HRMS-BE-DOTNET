@@ -77,9 +77,10 @@ public class AppDbContext : DbContext
             .HasForeignKey(e => e.TimeTypeId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Self-referential relationship for manager hierarchy
         modelBuilder.Entity<Employee>()
             .HasOne(e => e.Manager)
-            .WithMany()
+            .WithMany(e => e.DirectReports)
             .HasForeignKey(e => e.ManagerId)
             .OnDelete(DeleteBehavior.SetNull);
 

@@ -1,5 +1,6 @@
 using EmployeeApi.Dtos;
 using EmployeeApi.Extensions;
+using EmployeeApi.Repositories;
 using EmployeeApi.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,15 +14,18 @@ public class RequestsController : ControllerBase
 {
     private readonly IRequestService _requestService;
     private readonly IUserContextService _userContextService;
+    private readonly IRequestRepository _requestRepository;
     private readonly ILogger<RequestsController> _logger;
 
     public RequestsController(
-        IRequestService requestService, 
+        IRequestService requestService,
         IUserContextService userContextService,
+        IRequestRepository requestRepository,
         ILogger<RequestsController> logger)
     {
         _requestService = requestService;
         _userContextService = userContextService;
+        _requestRepository = requestRepository;
         _logger = logger;
     }
 
@@ -33,7 +37,7 @@ public class RequestsController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int limit = 20,
         [FromQuery] string? status = null,
-        [FromQuery] string? request_type = null,
+        [FromQuery] string? category = null,
         [FromQuery] long? employee_id = null,
         [FromQuery] DateTime? date_from = null,
         [FromQuery] DateTime? date_to = null)
@@ -43,20 +47,72 @@ public class RequestsController : ControllerBase
             // Get current user's employee ID from JWT token (maps email to employee_id)
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
             var userRole = _userContextService.GetRoleFromClaims(User);
-            
-            // Managers/Admins can filter by employee_id, regular employees see only their own
-            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
-                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-            long? filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
+
+            // Check if user is a manager/admin by role OR by having direct reports in database
+            var isManagerOrAdminByRole = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
+                                      || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+
+            // Also check if user has direct reports in the database (even if role claim is wrong)
+            var directReportIds = await _requestRepository.GetDirectReportEmployeeIdsAsync(currentEmployeeId);
+            var hasDirectReports = directReportIds.Count > 0;
+
+            var isManagerOrAdmin = isManagerOrAdminByRole || hasDirectReports;
+
+            // Normalize category (lowercase)
+            string? categoryFilter = null;
+            if (!string.IsNullOrEmpty(category))
+            {
+                categoryFilter = category.ToLower().Trim();
+            }
+
+            // Determine if we need manager filtering for approval request categories
+            // Categories that require approval: "timesheet" and "time-off"
+            bool filterByManagerReports = false;
+            long? managerId = null;
+
+            if (isManagerOrAdmin && !string.IsNullOrEmpty(categoryFilter))
+            {
+                var approvalCategories = new HashSet<string> { "timesheet", "time-off" };
+
+                if (approvalCategories.Contains(categoryFilter))
+                {
+                    // For approval requests, managers should only see their direct reports
+                    filterByManagerReports = true;
+                    managerId = currentEmployeeId;
+                    // Don't filter by employee_id for approval requests when manager filtering is enabled
+                    employee_id = null;
+                }
+            }
+
+            // Regular employees see only their own requests
+            // When filterByManagerReports is true, set filterEmployeeId to null so manager filtering can work
+            long? filterEmployeeId = filterByManagerReports
+                ? null
+                : (isManagerOrAdmin ? employee_id : currentEmployeeId);
+
+            // Log for debugging
+            _logger.LogInformation(
+                "GetRequests - ManagerId: {ManagerId}, EmployeeId: {EmployeeId}, Role: {Role}, IsManagerByRole: {IsManagerByRole}, HasDirectReports: {HasDirectReports}, DirectReportCount: {DirectReportCount}, IsManager: {IsManager}, Category: {Category}, FilterByManagerReports: {FilterByManagerReports}, FilterEmployeeId: {FilterEmployeeId}",
+                managerId, currentEmployeeId, userRole, isManagerOrAdminByRole, hasDirectReports, directReportIds.Count, isManagerOrAdmin,
+                categoryFilter ?? "null",
+                filterByManagerReports,
+                filterEmployeeId);
 
             var result = await _requestService.GetRequestsAsync(
                 filterEmployeeId,
                 status?.ToUpper(),
-                request_type?.ToUpper(),
+                categoryFilter,
                 date_from,
                 date_to,
                 page,
-                limit);
+                limit,
+                managerId,
+                filterByManagerReports);
+
+            // Log result count for debugging
+            _logger.LogInformation(
+                "GetRequests - Result: {Count} requests found",
+                result.Data.Count);
 
             return Ok(result);
         }
@@ -195,14 +251,14 @@ public class RequestsController : ControllerBase
         {
             // Get current user's employee ID from JWT token and verify role
             var userRole = _userContextService.GetRoleFromClaims(User);
-            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
                                 || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-            
+
             if (!isManagerOrAdmin)
             {
                 return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can approve requests" });
             }
-            
+
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var request = await _requestService.ApproveRequestAsync(id, currentEmployeeId, dto?.Comment);
@@ -235,14 +291,14 @@ public class RequestsController : ControllerBase
 
             // Get current user's employee ID from JWT token and verify role
             var userRole = _userContextService.GetRoleFromClaims(User);
-            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
+            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
                                 || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-            
+
             if (!isManagerOrAdmin)
             {
                 return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can reject requests" });
             }
-            
+
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
             var request = await _requestService.RejectRequestAsync(id, currentEmployeeId, dto.Reason);

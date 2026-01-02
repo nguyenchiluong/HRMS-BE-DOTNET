@@ -216,14 +216,17 @@ public class TimeOffService : ITimeOffService
             normalizedTypeFilter = type.ToUpper().Replace("-", "_");
         }
 
+        // Filter by time-off category instead of specific request type
         var allRequests = await _requestRepository.GetRequestsAsync(
             employeeId,
             status?.ToUpper(),
-            normalizedTypeFilter,
+            "time-off", // Filter by category
             null,
             null,
             1,
-            10000); // Get all to filter by type
+            10000,
+            null,
+            false);
 
         // Filter to time-off types only
         var timeOffRequests = allRequests
@@ -307,7 +310,7 @@ public class TimeOffService : ITimeOffService
         // If not found by ID, try to find by payload requestId
         if (requestToCancel == null)
         {
-            var allRequests = await _requestRepository.GetRequestsAsync(employeeId, null, null, null, null, 1, 1000);
+            var allRequests = await _requestRepository.GetRequestsAsync(employeeId, null, "time-off", null, null, 1, 1000, null, false);
             requestToCancel = allRequests.FirstOrDefault(r =>
             {
                 if (string.IsNullOrEmpty(r.Payload)) return false;
@@ -389,7 +392,7 @@ public class TimeOffService : ITimeOffService
     public async Task<string> GenerateRequestIdAsync()
     {
         // Get the latest request to generate next ID
-        var allRequests = await _requestRepository.GetRequestsAsync(null, null, null, null, null, 1, 1);
+        var allRequests = await _requestRepository.GetRequestsAsync(null, null, null, null, null, 1, 1, null, false);
         var latestRequest = allRequests.OrderByDescending(r => r.Id).FirstOrDefault();
 
         var nextNumber = latestRequest != null ? latestRequest.Id + 1 : 1;
@@ -412,7 +415,7 @@ public class TimeOffService : ITimeOffService
         }
 
         // Get all approved requests for this employee and year
-        var allRequests = await _requestRepository.GetRequestsAsync(employeeId, "APPROVED", null, null, null, 1, 10000);
+        var allRequests = await _requestRepository.GetRequestsAsync(employeeId, "APPROVED", "time-off", null, null, 1, 10000, null, false);
 
         var relevantRequests = allRequests
             .Where(r => r.RequestTypeLookup != null

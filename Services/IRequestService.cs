@@ -8,11 +8,13 @@ public interface IRequestService
     Task<PaginatedResponseDto<RequestDto>> GetRequestsAsync(
         long? employeeId = null,
         string? status = null,
-        string? requestType = null,
+        string? category = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,
-        int limit = 20);
+        int limit = 20,
+        long? managerId = null,
+        bool filterByManagerReports = false);
 
     Task<RequestDetailsDto?> GetRequestByIdAsync(int id);
 

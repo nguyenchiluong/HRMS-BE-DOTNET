@@ -3,29 +3,35 @@ using EmployeeApi.Models;
 using EmployeeApi.Models.Enums;
 using EmployeeApi.Helpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace EmployeeApi.Repositories;
 
 public class RequestRepository : IRequestRepository
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<RequestRepository>? _logger;
 
-    public RequestRepository(AppDbContext context)
+    public RequestRepository(AppDbContext context, ILogger<RequestRepository>? logger = null)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<List<Request>> GetRequestsAsync(
         long? employeeId = null,
         string? status = null,
-        string? requestType = null,
+        string? category = null,
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         int page = 1,
-        int limit = 20)
+        int limit = 20,
+        long? managerId = null,
+        bool filterByManagerReports = false)
     {
         var query = _context.Requests
             .Include(r => r.Requester)
+                .ThenInclude(e => e!.Department)
             .Include(r => r.Approver)
             .Include(r => r.RequestTypeLookup)
             .AsQueryable();
@@ -35,18 +41,39 @@ public class RequestRepository : IRequestRepository
             query = query.Where(r => r.RequesterEmployeeId == employeeId.Value);
         }
 
+        // Manager filtering for approval request categories
+        if (filterByManagerReports && managerId.HasValue)
+        {
+            var directReportIds = await GetDirectReportEmployeeIdsAsync(managerId.Value);
+            _logger?.LogInformation(
+                "GetRequestsAsync - Manager filtering: ManagerId={ManagerId}, DirectReportIds=[{DirectReportIds}], EmployeeId filter={EmployeeId}",
+                managerId.Value,
+                string.Join(", ", directReportIds),
+                employeeId?.ToString() ?? "null");
+
+            if (directReportIds.Count > 0)
+            {
+                query = query.Where(r => directReportIds.Contains(r.RequesterEmployeeId));
+            }
+            else
+            {
+                // Manager has no direct reports, return empty result
+                query = query.Where(r => false);
+            }
+        }
+
         if (!string.IsNullOrEmpty(status))
         {
             var statusEnum = EnumHelper.ParseRequestStatus(status);
             query = query.Where(r => r.Status == statusEnum);
         }
 
-        if (!string.IsNullOrEmpty(requestType))
+        // Filter by category
+        if (!string.IsNullOrEmpty(category))
         {
-            // Normalize the request type string for comparison
-            var normalizedType = requestType.ToUpper().Replace("-", "_");
-            query = query.Where(r => r.RequestTypeLookup != null && 
-                (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
+            var normalizedCategory = category.ToLower().Trim();
+            query = query.Where(r => r.RequestTypeLookup != null &&
+                r.RequestTypeLookup.Category.ToLower() == normalizedCategory);
         }
 
         if (dateFrom.HasValue)
@@ -69,9 +96,11 @@ public class RequestRepository : IRequestRepository
     public async Task<int> GetRequestsCountAsync(
         long? employeeId = null,
         string? status = null,
-        string? requestType = null,
+        string? category = null,
         DateTime? dateFrom = null,
-        DateTime? dateTo = null)
+        DateTime? dateTo = null,
+        long? managerId = null,
+        bool filterByManagerReports = false)
     {
         var query = _context.Requests.AsQueryable();
 
@@ -80,18 +109,25 @@ public class RequestRepository : IRequestRepository
             query = query.Where(r => r.RequesterEmployeeId == employeeId.Value);
         }
 
+        // Manager filtering for approval request categories
+        if (filterByManagerReports && managerId.HasValue)
+        {
+            var directReportIds = await GetDirectReportEmployeeIdsAsync(managerId.Value);
+            query = query.Where(r => directReportIds.Contains(r.RequesterEmployeeId));
+        }
+
         if (!string.IsNullOrEmpty(status))
         {
             var statusEnum = EnumHelper.ParseRequestStatus(status);
             query = query.Where(r => r.Status == statusEnum);
         }
 
-        if (!string.IsNullOrEmpty(requestType))
+        // Filter by category
+        if (!string.IsNullOrEmpty(category))
         {
-            // Normalize the request type string for comparison
-            var normalizedType = requestType.ToUpper().Replace("-", "_");
-            query = query.Where(r => r.RequestTypeLookup != null && 
-                (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
+            var normalizedCategory = category.ToLower().Trim();
+            query = query.Where(r => r.RequestTypeLookup != null &&
+                r.RequestTypeLookup.Category.ToLower() == normalizedCategory);
         }
 
         if (dateFrom.HasValue)
@@ -105,6 +141,72 @@ public class RequestRepository : IRequestRepository
         }
 
         return await query.CountAsync();
+    }
+
+    public async Task<List<long>> GetDirectReportEmployeeIdsAsync(long managerId)
+    {
+        // Get direct reports - employees who have this manager_id
+        // This supports hierarchical reporting structure (employees -> managers -> senior managers -> CEO)
+        var directReports = await _context.Employees
+            .Where(e => e.ManagerId == managerId)
+            .Select(e => new { e.Id, e.Email, e.FullName })
+            .ToListAsync();
+
+        // Log for debugging
+        _logger?.LogInformation(
+            "GetDirectReportEmployeeIds - ManagerId: {ManagerId}, DirectReports: [{DirectReports}]",
+            managerId,
+            string.Join(", ", directReports.Select(dr => $"{dr.Id}({dr.Email})")));
+
+        return directReports.Select(dr => dr.Id).ToList();
+    }
+
+    public async Task<bool> IsEmployeeUnderManagerAsync(long employeeId, long managerId)
+    {
+        var employee = await _context.Employees
+            .FirstOrDefaultAsync(e => e.Id == employeeId);
+
+        if (employee == null)
+        {
+            return false;
+        }
+
+        // Check if manager is direct manager
+        if (employee.ManagerId == managerId)
+        {
+            return true;
+        }
+
+        // Check if manager is in the reporting chain (hierarchical check)
+        // This supports multi-level hierarchy: employee -> manager -> senior manager -> director -> CEO
+        var currentManagerId = employee.ManagerId;
+        var visited = new HashSet<long> { employeeId };
+
+        while (currentManagerId.HasValue)
+        {
+            if (visited.Contains(currentManagerId.Value))
+            {
+                break; // Prevent infinite loop
+            }
+            visited.Add(currentManagerId.Value);
+
+            if (currentManagerId.Value == managerId)
+            {
+                return true;
+            }
+
+            var manager = await _context.Employees
+                .FirstOrDefaultAsync(e => e.Id == currentManagerId.Value);
+
+            if (manager == null)
+            {
+                break;
+            }
+
+            currentManagerId = manager.ManagerId;
+        }
+
+        return false;
     }
 
     public async Task<Request?> GetRequestByIdAsync(int id)
@@ -168,7 +270,7 @@ public class RequestRepository : IRequestRepository
         {
             // Normalize the request type string for comparison
             var normalizedType = requestType.ToUpper().Replace("-", "_");
-            query = query.Where(r => r.RequestTypeLookup != null && 
+            query = query.Where(r => r.RequestTypeLookup != null &&
                 (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
         }
 
@@ -204,7 +306,7 @@ public class RequestRepository : IRequestRepository
         {
             // Normalize the request type string for comparison
             var normalizedType = requestType.ToUpper().Replace("-", "_");
-            query = query.Where(r => r.RequestTypeLookup != null && 
+            query = query.Where(r => r.RequestTypeLookup != null &&
                 (r.RequestTypeLookup.Code == normalizedType || r.RequestTypeLookup.Code == requestType));
         }
 
