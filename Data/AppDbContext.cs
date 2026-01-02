@@ -11,6 +11,9 @@ public class AppDbContext : DbContext
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<JobLevel> JobLevels => Set<JobLevel>();
+    public DbSet<EmploymentType> EmploymentTypes => Set<EmploymentType>();
+    public DbSet<TimeType> TimeTypes => Set<TimeType>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
     public DbSet<Education> Educations => Set<Education>();
     public DbSet<Request> Requests => Set<Request>();
@@ -33,6 +36,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AttendanceRecord>().ToTable("attendance_record");
         modelBuilder.Entity<Position>().ToTable("position");
         modelBuilder.Entity<Department>().ToTable("department");
+        modelBuilder.Entity<JobLevel>().ToTable("job_level");
+        modelBuilder.Entity<EmploymentType>().ToTable("employment_type");
+        modelBuilder.Entity<TimeType>().ToTable("time_type");
         modelBuilder.Entity<TimesheetTask>().ToTable("timesheet_task");
         modelBuilder.Entity<TimesheetEntry>().ToTable("timesheet_entry");
 
@@ -47,6 +53,24 @@ public class AppDbContext : DbContext
             .HasOne(e => e.Department)
             .WithMany()
             .HasForeignKey(e => e.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.JobLevel)
+            .WithMany()
+            .HasForeignKey(e => e.JobLevelId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.EmploymentType)
+            .WithMany()
+            .HasForeignKey(e => e.EmploymentTypeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.TimeType)
+            .WithMany()
+            .HasForeignKey(e => e.TimeTypeId)
             .OnDelete(DeleteBehavior.SetNull);
 
         modelBuilder.Entity<Employee>()

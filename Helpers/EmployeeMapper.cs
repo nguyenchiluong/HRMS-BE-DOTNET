@@ -38,9 +38,9 @@ public static class EmployeeMapper
             e.StartDate,
             e.Position?.Title,
             e.Department?.Name,
-            e.JobLevel,
-            e.EmployeeType,
-            e.TimeType,
+            e.JobLevel?.Name,
+            e.EmploymentType?.Name,
+            e.TimeType?.Name,
             e.Status,
             e.CreatedAt,
             e.UpdatedAt

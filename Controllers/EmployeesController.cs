@@ -12,8 +12,78 @@ public class EmployeesController : ControllerBase
     public EmployeesController(IEmployeeService service) => _service = service;
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetAll([FromQuery] string? search = null) =>
-        Ok(await _service.GetAllAsync(search));
+    public async Task<ActionResult<EmployeePaginatedResponse<FilteredEmployeeDto>>> GetAll(
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string[]? status = null,
+        [FromQuery] string[]? department = null,
+        [FromQuery] string[]? position = null,
+        [FromQuery] string[]? jobLevel = null,
+        [FromQuery] string[]? employmentType = null,
+        [FromQuery] string[]? timeType = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 14)
+    {
+        try
+        {
+            // Parse arrays (from multiple query params) and comma-separated values into lists
+            List<string>? statuses = ParseFilterArray(status);
+            List<string>? departments = ParseFilterArray(department);
+            List<string>? positions = ParseFilterArray(position);
+            List<string>? jobLevels = ParseFilterArray(jobLevel);
+            List<string>? employmentTypes = ParseFilterArray(employmentType);
+            List<string>? timeTypes = ParseFilterArray(timeType);
+
+            var result = await _service.GetFilteredAsync(
+                searchTerm,
+                statuses,
+                departments,
+                positions,
+                jobLevels,
+                employmentTypes,
+                timeTypes,
+                page,
+                pageSize);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Parses an array of strings (from multiple query params or comma-separated values) into a list
+    /// Supports both formats: ?department=Product&department=Engineering OR ?department=Product,Engineering
+    /// </summary>
+    private static List<string>? ParseFilterArray(string[]? values)
+    {
+        if (values == null || values.Length == 0)
+            return null;
+
+        // Flatten: split each value by comma (in case of comma-separated) and combine all
+        var items = values
+            .SelectMany(v => v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct()
+            .ToList();
+
+        return items.Count > 0 ? items : null;
+    }
+
+    [HttpGet("stats")]
+    public async Task<ActionResult<EmployeeStatsDto>> GetStats()
+    {
+        try
+        {
+            var stats = await _service.GetStatsAsync();
+            return Ok(stats);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
 
     [HttpGet("{id:long}")]
     public async Task<ActionResult<EmployeeDto>> GetOne(long id)

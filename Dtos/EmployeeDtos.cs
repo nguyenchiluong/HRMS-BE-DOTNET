@@ -58,10 +58,10 @@ public class InitialProfileDto
     /// </summary>
     public string PersonalEmail { get; set; } = default!;
     public long PositionId { get; set; }
-    public string JobLevel { get; set; } = default!;
+    public long JobLevelId { get; set; }
     public long DepartmentId { get; set; }
-    public string EmployeeType { get; set; } = default!;
-    public string TimeType { get; set; } = default!;
+    public long EmploymentTypeId { get; set; }
+    public long TimeTypeId { get; set; }
     public DateOnly StartDate { get; set; }
     public long? ManagerId { get; set; }
 }
@@ -162,3 +162,46 @@ public class OnboardDto
     // Comment
     public string? Comment { get; set; }
 }
+
+/// <summary>
+/// Simplified DTO for employee table/list view with filtering
+/// </summary>
+public record FilteredEmployeeDto(
+    string Id,
+    string FullName,
+    string WorkEmail,
+    string? Position,
+    string? JobLevel,
+    string? Department,
+    string Status,
+    string? EmploymentType,
+    string? TimeType
+);
+
+/// <summary>
+/// Pagination metadata for employee endpoints
+/// </summary>
+public record EmployeePaginationDto(
+    int CurrentPage,
+    int PageSize,
+    int TotalItems,
+    int TotalPages
+);
+
+/// <summary>
+/// Paginated response wrapper for employee endpoints
+/// </summary>
+public record EmployeePaginatedResponse<T>(
+    List<T> Data,
+    EmployeePaginationDto Pagination
+);
+
+/// <summary>
+/// Employee statistics DTO
+/// </summary>
+public record EmployeeStatsDto(
+    int Total,
+    int Onboarding,
+    int Resigned,
+    int Managers
+);
