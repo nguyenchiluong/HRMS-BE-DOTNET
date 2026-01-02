@@ -92,10 +92,10 @@ public class EmployeeService : IEmployeeService
             Email = workEmail,
             PersonalEmail = input.PersonalEmail.Trim(),
             PositionId = input.PositionId,
-            JobLevel = input.JobLevel.Trim(),
+            JobLevelId = input.JobLevelId,
             DepartmentId = input.DepartmentId,
-            EmployeeType = input.EmployeeType.Trim(),
-            TimeType = input.TimeType.Trim(),
+            EmploymentTypeId = input.EmploymentTypeId,
+            TimeTypeId = input.TimeTypeId,
             StartDate = input.StartDate,
             ManagerId = input.ManagerId,
             Status = EmployeeStatus.PendingOnboarding.ToApiString(),
@@ -177,7 +177,78 @@ public class EmployeeService : IEmployeeService
         return true;
     }
 
+    public async Task<EmployeePaginatedResponse<FilteredEmployeeDto>> GetFilteredAsync(
+        string? searchTerm,
+        List<string>? statuses,
+        List<string>? departments,
+        List<string>? positions,
+        List<string>? jobLevels,
+        List<string>? employmentTypes,
+        List<string>? timeTypes,
+        int page,
+        int pageSize)
+    {
+        // Validate pagination parameters
+        if (page < 1) page = 1;
+        if (pageSize < 1) pageSize = 14;
+        if (pageSize > 100) pageSize = 100;
+
+        var (employees, totalCount) = await _repo.GetFilteredAsync(
+            searchTerm,
+            statuses,
+            departments,
+            positions,
+            jobLevels,
+            employmentTypes,
+            timeTypes,
+            page,
+            pageSize);
+
+        var filteredDtos = employees.Select(e => new FilteredEmployeeDto(
+            Id: e.Id.ToString(),
+            FullName: e.FullName,
+            WorkEmail: e.Email,
+            Position: e.Position?.Title,
+            JobLevel: e.JobLevel?.Name,
+            Department: e.Department?.Name,
+            Status: MapStatusToUserFriendly(e.Status),
+            EmploymentType: e.EmploymentType?.Name,
+            TimeType: e.TimeType?.Name
+        )).ToList();
+
+        var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+        var pagination = new EmployeePaginationDto(
+            CurrentPage: page,
+            PageSize: pageSize,
+            TotalItems: totalCount,
+            TotalPages: totalPages
+        );
+
+        return new EmployeePaginatedResponse<FilteredEmployeeDto>(filteredDtos, pagination);
+    }
+
+    public async Task<EmployeeStatsDto> GetStatsAsync()
+    {
+        var (total, onboarding, resigned, managers) = await _repo.GetStatsAsync();
+        return new EmployeeStatsDto(total, onboarding, resigned, managers);
+    }
+
     #region Private Helper Methods
+
+    /// <summary>
+    /// Maps database status to user-friendly format
+    /// </summary>
+    private static string MapStatusToUserFriendly(string? status)
+    {
+        return status?.ToUpper() switch
+        {
+            "PENDING_ONBOARDING" => "Pending",
+            "ACTIVE" => "Active",
+            "INACTIVE" => "Inactive",
+            _ => status ?? "Unknown"
+        };
+    }
 
     private static void ValidateCreateInput(CreateEmployeeDto input)
     {
@@ -193,12 +264,6 @@ public class EmployeeService : IEmployeeService
             throw new ArgumentException("FullName is required");
         if (string.IsNullOrWhiteSpace(input.PersonalEmail))
             throw new ArgumentException("PersonalEmail is required");
-        if (string.IsNullOrWhiteSpace(input.JobLevel))
-            throw new ArgumentException("JobLevel is required");
-        if (string.IsNullOrWhiteSpace(input.EmployeeType))
-            throw new ArgumentException("EmployeeType is required");
-        if (string.IsNullOrWhiteSpace(input.TimeType))
-            throw new ArgumentException("TimeType is required");
 
         // Check if generated work email already exists
         if (await _repo.ExistsByEmailAsync(workEmail))
@@ -210,6 +275,15 @@ public class EmployeeService : IEmployeeService
 
         var position = await _db.Positions.FindAsync(input.PositionId)
             ?? throw new ArgumentException($"Position with ID {input.PositionId} does not exist");
+
+        var jobLevel = await _db.JobLevels.FindAsync(input.JobLevelId)
+            ?? throw new ArgumentException($"JobLevel with ID {input.JobLevelId} does not exist");
+
+        var employmentType = await _db.EmploymentTypes.FindAsync(input.EmploymentTypeId)
+            ?? throw new ArgumentException($"EmploymentType with ID {input.EmploymentTypeId} does not exist");
+
+        var timeType = await _db.TimeTypes.FindAsync(input.TimeTypeId)
+            ?? throw new ArgumentException($"TimeType with ID {input.TimeTypeId} does not exist");
 
         if (input.ManagerId.HasValue)
         {

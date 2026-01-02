@@ -84,14 +84,23 @@ public class Employee
     [Column("start_date", TypeName = "date")]
     public DateOnly? StartDate { get; set; }
 
-    [Column("job_level")]
-    public string? JobLevel { get; set; }
+    [Column("job_level_id")]
+    public long? JobLevelId { get; set; }
 
-    [Column("employee_type")]
-    public string? EmployeeType { get; set; }
+    [ForeignKey("JobLevelId")]
+    public JobLevel? JobLevel { get; set; }
 
-    [Column("time_type")]
-    public string? TimeType { get; set; }
+    [Column("employment_type_id")]
+    public long? EmploymentTypeId { get; set; }
+
+    [ForeignKey("EmploymentTypeId")]
+    public EmploymentType? EmploymentType { get; set; }
+
+    [Column("time_type_id")]
+    public long? TimeTypeId { get; set; }
+
+    [ForeignKey("TimeTypeId")]
+    public TimeType? TimeType { get; set; }
 
     [Column("dept_id")]
     public long? DepartmentId { get; set; }

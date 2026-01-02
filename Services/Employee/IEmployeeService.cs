@@ -28,5 +28,24 @@ public interface IEmployeeService
     /// Saves onboarding progress without completing it
     /// </summary>
     Task<EmployeeDto> SaveOnboardingProgressAsync(string token, OnboardDto input);
+
+    /// <summary>
+    /// Gets filtered and paginated employees for table view
+    /// </summary>
+    Task<EmployeePaginatedResponse<FilteredEmployeeDto>> GetFilteredAsync(
+        string? searchTerm,
+        List<string>? statuses,
+        List<string>? departments,
+        List<string>? positions,
+        List<string>? jobLevels,
+        List<string>? employmentTypes,
+        List<string>? timeTypes,
+        int page,
+        int pageSize);
+
+    /// <summary>
+    /// Gets employee statistics
+    /// </summary>
+    Task<EmployeeStatsDto> GetStatsAsync();
 }
 
