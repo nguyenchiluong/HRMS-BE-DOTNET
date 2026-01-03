@@ -17,7 +17,7 @@ public class AttendanceController : ControllerBase
 
     public AttendanceController(
         IAttendanceService attendanceService,
-        IUserContextService userContextService, 
+        IUserContextService userContextService,
         ILogger<AttendanceController> logger)
     {
         _attendanceService = attendanceService;
@@ -26,18 +26,34 @@ public class AttendanceController : ControllerBase
     }
 
     /// <summary>
-    /// Check-in for the day
+    /// Get current clock status for today
     /// </summary>
-    [HttpPost("check-in")]
-    public async Task<ActionResult<CheckInResponseDto>> CheckIn([FromBody] CheckInDto? dto)
+    [HttpGet("status")]
+    public async Task<ActionResult<CurrentClockStatusResponseDto>> GetCurrentClockStatus()
     {
         try
         {
-            // Get current user's employee ID from JWT token (maps email to employee_id)
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+            var result = await _attendanceService.GetCurrentClockStatusAsync(currentEmployeeId);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting current clock status");
+            return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+        }
+    }
 
-            var result = await _attendanceService.CheckInAsync(currentEmployeeId, dto?.Location);
-
+    /// <summary>
+    /// Clock in for the day
+    /// </summary>
+    [HttpPost("clock-in")]
+    public async Task<ActionResult<ClockInResponseDto>> ClockIn()
+    {
+        try
+        {
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+            var result = await _attendanceService.ClockInAsync(currentEmployeeId);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -46,24 +62,21 @@ public class AttendanceController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during check-in");
+            _logger.LogError(ex, "Error during clock-in");
             return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
         }
     }
 
     /// <summary>
-    /// Check-out for the day
+    /// Clock out for the day
     /// </summary>
-    [HttpPost("check-out")]
-    public async Task<ActionResult<CheckOutResponseDto>> CheckOut()
+    [HttpPost("clock-out")]
+    public async Task<ActionResult<ClockOutResponseDto>> ClockOut()
     {
         try
         {
-            // Get current user's employee ID from JWT token (maps email to employee_id)
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
-
-            var result = await _attendanceService.CheckOutAsync(currentEmployeeId);
-
+            var result = await _attendanceService.ClockOutAsync(currentEmployeeId);
             return Ok(result);
         }
         catch (InvalidOperationException ex)
@@ -72,37 +85,38 @@ public class AttendanceController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during check-out");
+            _logger.LogError(ex, "Error during clock-out");
             return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
         }
     }
 
     /// <summary>
-    /// Get attendance history
+    /// Get attendance history for employee
     /// </summary>
     [HttpGet("history")]
-    public async Task<ActionResult<PaginatedResponseDto<AttendanceRecordDto>>> GetAttendanceHistory(
-        [FromQuery] long? employee_id = null,
-        [FromQuery] DateTime? date_from = null,
-        [FromQuery] DateTime? date_to = null,
+    public async Task<ActionResult<AttendanceHistoryResponseDto>> GetAttendanceHistory(
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null,
         [FromQuery] int page = 1,
-        [FromQuery] int limit = 20)
+        [FromQuery] int limit = 7)
     {
         try
         {
-            // Get current user's employee ID and role from JWT token
-            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
-            var userRole = _userContextService.GetRoleFromClaims(User);
-            
-            // Managers/Admins can filter by employee_id, regular employees see only their own
-            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase) 
-                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-            long? filterEmployeeId = isManagerOrAdmin ? employee_id : currentEmployeeId;
+            // Validate pagination parameters
+            if (page < 1)
+            {
+                return BadRequest(new { error = "Bad Request", message = "Page must be greater than 0" });
+            }
+            if (limit < 1)
+            {
+                return BadRequest(new { error = "Bad Request", message = "Limit must be greater than 0" });
+            }
 
-            var result = await _attendanceService.GetAttendanceHistoryAsync(
-                filterEmployeeId,
-                date_from,
-                date_to,
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+            var result = await _attendanceService.GetAttendanceHistoryForEmployeeAsync(
+                currentEmployeeId,
+                startDate,
+                endDate,
                 page,
                 limit);
 
