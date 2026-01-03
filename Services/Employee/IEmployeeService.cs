@@ -47,5 +47,10 @@ public interface IEmployeeService
     /// Gets employee statistics
     /// </summary>
     Task<EmployeeStatsDto> GetStatsAsync();
+
+    /// <summary>
+    /// Updates the current employee's profile information
+    /// </summary>
+    Task<EmployeeDto> UpdateProfileAsync(long employeeId, UpdateProfileDto input);
 }
 

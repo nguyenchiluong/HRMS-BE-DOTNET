@@ -24,11 +24,12 @@ public record EmployeeDto(
     string? SocialInsuranceNumber,
     string? TaxId,
     DateOnly? StartDate,
-    string? PositionTitle,
-    string? DepartmentName,
-    string? JobLevel,
-    string? EmployeeType,
-    string? TimeType,
+    long? PositionId,
+    long? DepartmentId,
+    long? JobLevelId,
+    long? EmploymentTypeId,
+    long? TimeTypeId,
+    long? ManagerId,
     string? Status,
     DateTime? CreatedAt,
     DateTime? UpdatedAt
@@ -161,6 +162,35 @@ public class OnboardDto
 
     // Comment
     public string? Comment { get; set; }
+}
+
+/// <summary>
+/// DTO for employee to update their own profile information
+/// </summary>
+public class UpdateProfileDto
+{
+    // Personal details
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
+    public string? PreferredName { get; set; }
+    public string? Sex { get; set; }
+    public DateOnly? DateOfBirth { get; set; }
+    public string? MaritalStatus { get; set; }
+    public string? Pronoun { get; set; }
+    public string? PersonalEmail { get; set; }
+    public string? Phone { get; set; }
+    public string? Phone2 { get; set; }
+
+    // Address
+    public string? PermanentAddress { get; set; }
+    public string? CurrentAddress { get; set; }
+
+    // National ID
+    public NationalIdDto? NationalId { get; set; }
+
+    // Social Insurance & Tax
+    public string? SocialInsuranceNumber { get; set; }
+    public string? TaxId { get; set; }
 }
 
 /// <summary>

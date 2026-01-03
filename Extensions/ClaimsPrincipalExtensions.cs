@@ -92,7 +92,7 @@ public static class ClaimsPrincipalExtensions
     public static bool IsManagerOrAdmin(this ClaimsPrincipal principal)
     {
         var role = principal.GetRole();
-        return role.Equals("Manager", StringComparison.OrdinalIgnoreCase) 
-            || role.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+        return role.Equals("MANAGER", StringComparison.OrdinalIgnoreCase) 
+            || role.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
     }
 }
