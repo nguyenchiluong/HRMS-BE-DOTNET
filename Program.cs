@@ -7,6 +7,7 @@ using EmployeeApi.Repositories;
 using EmployeeApi.Services;
 using EmployeeApi.Services.Employee;
 using EmployeeApi.Services.Timesheet;
+using EmployeeApi.Extensions;
 using RabbitMQ.Client;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,7 +40,16 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy => 
+        policy.RequireAssertion(context => 
+            context.User.HasRole("ADMIN")));
+    
+    options.AddPolicy("ManagerOrAdmin", policy => 
+        policy.RequireAssertion(context => 
+            context.User.IsManagerOrAdmin()));
+});
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -78,6 +88,8 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IEducationRepository, EducationRepository>();
+builder.Services.AddScoped<IEducationService, EducationService>();
 builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<IRequestService, RequestService>();
 builder.Services.AddScoped<ILeaveBalanceRepository, LeaveBalanceRepository>();
