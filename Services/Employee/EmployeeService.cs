@@ -45,6 +45,12 @@ public class EmployeeService : IEmployeeService
         return list.Select(EmployeeMapper.ToDto);
     }
 
+    public async Task<IEnumerable<EmployeeDto>> GetByManagerIdAsync(long managerId)
+    {
+        var list = await _repo.GetByManagerIdAsync(managerId);
+        return list.Select(EmployeeMapper.ToDto);
+    }
+
     public async Task<EmployeeDto?> GetOneAsync(long id)
     {
         var e = await _repo.GetByIdAsync(id);

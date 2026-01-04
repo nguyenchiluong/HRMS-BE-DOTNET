@@ -5,6 +5,7 @@ namespace EmployeeApi.Services.Employee;
 public interface IEmployeeService
 {
     Task<IEnumerable<EmployeeDto>> GetAllAsync(string? search = null);
+    Task<IEnumerable<EmployeeDto>> GetByManagerIdAsync(long managerId);
     Task<EmployeeDto?> GetOneAsync(long id);
     Task<EmployeeDto> CreateAsync(CreateEmployeeDto input);
     Task<bool> DeleteAsync(long id);

@@ -8,7 +8,7 @@ public interface IEmployeeRepository : IRepository<Employee>
     Task<Employee?> GetByEmailAsync(string email);
     Task<long> GetNextIdAsync();
     Task<Employee?> GetByIdWithDetailsAsync(long id);
-    
+
     /// <summary>
     /// Gets filtered and paginated employees with related data (Position, Department)
     /// </summary>
@@ -22,9 +22,14 @@ public interface IEmployeeRepository : IRepository<Employee>
         List<string>? timeTypes,
         int page,
         int pageSize);
-    
+
     /// <summary>
     /// Gets employee statistics
     /// </summary>
     Task<(int Total, int Onboarding, int Resigned, int Managers)> GetStatsAsync();
+
+    /// <summary>
+    /// Lists employees reporting to the specified manager
+    /// </summary>
+    Task<IReadOnlyList<Employee>> GetByManagerIdAsync(long managerId);
 }

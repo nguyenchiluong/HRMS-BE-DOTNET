@@ -53,6 +53,20 @@ public class EmployeesController : ControllerBase
         }
     }
 
+    [HttpGet("manager/{managerId:long}")]
+    public async Task<ActionResult<IEnumerable<EmployeeDto>>> GetByManager(long managerId)
+    {
+        try
+        {
+            var employees = await _service.GetByManagerIdAsync(managerId);
+            return Ok(employees);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
     /// <summary>
     /// Parses an array of strings (from multiple query params or comma-separated values) into a list
     /// Supports both formats: ?department=Product&department=Engineering OR ?department=Product,Engineering
@@ -102,14 +116,14 @@ public class EmployeesController : ControllerBase
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
             }
 
             var dto = await _service.GetOneAsync(employeeId.Value);
-            
+
             if (dto == null)
             {
                 return NotFound(new { message = "Employee not found" });
@@ -159,7 +173,7 @@ public class EmployeesController : ControllerBase
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
