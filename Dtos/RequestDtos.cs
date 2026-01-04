@@ -174,44 +174,6 @@ public class CancelTimeOffRequestDto
     public string? Comment { get; set; }
 }
 
-// Attendance DTOs
-public class CheckInDto
-{
-    public LocationDto? Location { get; set; }
-}
-
-public class LocationDto
-{
-    public double Latitude { get; set; }
-    public double Longitude { get; set; }
-}
-
-public class CheckInResponseDto
-{
-    public string Message { get; set; } = default!;
-    public DateTime CheckInTime { get; set; }
-}
-
-public class CheckOutResponseDto
-{
-    public string Message { get; set; } = default!;
-    public DateTime CheckOutTime { get; set; }
-    public double TotalHours { get; set; }
-}
-
-public class AttendanceRecordDto
-{
-    public long Id { get; set; }
-    public long EmployeeId { get; set; }
-    public DateTime Date { get; set; }
-    public DateTime CheckInTime { get; set; }
-    public DateTime? CheckOutTime { get; set; }
-    public double? TotalHours { get; set; }
-    public LocationDto? Location { get; set; }
-    public string Status { get; set; } = default!;
-    public DateTime CreatedAt { get; set; }
-}
-
 // Pagination DTOs
 public class PaginationDto
 {

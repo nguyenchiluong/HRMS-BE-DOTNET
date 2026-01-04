@@ -4,14 +4,13 @@ namespace EmployeeApi.Services;
 
 public interface IAttendanceService
 {
-    Task<CheckInResponseDto> CheckInAsync(long employeeId, LocationDto? location);
-
-    Task<CheckOutResponseDto> CheckOutAsync(long employeeId);
-
-    Task<PaginatedResponseDto<AttendanceRecordDto>> GetAttendanceHistoryAsync(
-        long? employeeId = null,
-        DateTime? dateFrom = null,
-        DateTime? dateTo = null,
+    Task<CurrentClockStatusResponseDto> GetCurrentClockStatusAsync(long employeeId);
+    Task<ClockInResponseDto> ClockInAsync(long employeeId);
+    Task<ClockOutResponseDto> ClockOutAsync(long employeeId);
+    Task<AttendanceHistoryResponseDto> GetAttendanceHistoryForEmployeeAsync(
+        long employeeId,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         int page = 1,
-        int limit = 20);
+        int limit = 7);
 }
