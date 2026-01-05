@@ -4,6 +4,7 @@ using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
 using EmployeeApi.Helpers;
 using System.Text.Json;
+using RequestEntity = EmployeeApi.Models.Request;
 
 namespace EmployeeApi.Services;
 
@@ -99,7 +100,7 @@ public class TimeOffService : ITimeOffService
         var effectiveFrom = DateTime.SpecifyKind(dto.StartDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
         var effectiveTo = DateTime.SpecifyKind(dto.EndDate.ToDateTime(TimeOnly.MaxValue), DateTimeKind.Utc);
 
-        var request = new Request
+        var request = new RequestEntity
         {
             RequestTypeId = requestTypeLookup.Id,
             RequesterEmployeeId = employeeId,
@@ -298,7 +299,7 @@ public class TimeOffService : ITimeOffService
 
     public async Task<TimeOffRequestResponseDto> CancelTimeOffRequestAsync(string requestId, long employeeId, string? comment)
     {
-        Request? requestToCancel = null;
+        RequestEntity? requestToCancel = null;
 
         // Parse request ID (format: REQ-XXX)
         var idPart = requestId.Replace("REQ-", "");
