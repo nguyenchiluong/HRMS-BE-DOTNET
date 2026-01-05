@@ -5,6 +5,7 @@ using EmployeeApi.Helpers;
 using EmployeeApi.Models;
 using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
+using EmployeeApi.Services;
 using RequestEntity = EmployeeApi.Models.Request;
 
 namespace EmployeeApi.Services.Timesheet;
@@ -15,6 +16,7 @@ public class TimesheetService : ITimesheetService
     private readonly IRequestRepository _requestRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IRequestTypeRepository _requestTypeRepository;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<TimesheetService> _logger;
 
     private const decimal MAX_HOURS_PER_WEEK = 168m; // 7 days * 24 hours
@@ -25,12 +27,14 @@ public class TimesheetService : ITimesheetService
         IRequestRepository requestRepository,
         IEmployeeRepository employeeRepository,
         IRequestTypeRepository requestTypeRepository,
+        INotificationService notificationService,
         ILogger<TimesheetService> logger)
     {
         _timesheetRepository = timesheetRepository;
         _requestRepository = requestRepository;
         _employeeRepository = employeeRepository;
         _requestTypeRepository = requestTypeRepository;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -146,6 +150,27 @@ public class TimesheetService : ITimesheetService
         };
 
         var createdRequest = await _requestRepository.CreateRequestAsync(request);
+
+        // 6.5. Send notification to manager if approver is set
+        if (approverEmployeeId.HasValue)
+        {
+            try
+            {
+                await _notificationService.SendNotificationAsync(new NotificationEvent
+                {
+                    EmpId = approverEmployeeId.Value,
+                    Title = "New Timesheet Submission",
+                    Message = $"{employee.FullName} has submitted a timesheet for Week {dto.WeekNumber}, {dto.Month}/{dto.Year}. Please review and approve.",
+                    Type = "info"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send notification to manager {ManagerId} for timesheet request {RequestId}",
+                    approverEmployeeId.Value, createdRequest.Id);
+                // Don't throw - notification failure shouldn't fail the request creation
+            }
+        }
 
         // 7. Bulk insert timesheet_entry records
         var entries = dto.Entries.Select(e => new TimesheetEntry
