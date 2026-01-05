@@ -17,6 +17,8 @@ public class RequestService : IRequestService
     private readonly IRequestTypeRepository _requestTypeRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IRequestNotificationService _notificationService;
+    private readonly INotificationService _rabbitMqNotificationService;
+    private readonly ILeaveBalanceRepository _leaveBalanceRepository;
     private readonly ILogger<RequestService> _logger;
 
     public RequestService(
@@ -24,12 +26,16 @@ public class RequestService : IRequestService
         IRequestTypeRepository requestTypeRepository,
         IEmployeeRepository employeeRepository,
         IRequestNotificationService notificationService,
+        INotificationService rabbitMqNotificationService,
+        ILeaveBalanceRepository leaveBalanceRepository,
         ILogger<RequestService> logger)
     {
         _requestRepository = requestRepository;
         _requestTypeRepository = requestTypeRepository;
         _employeeRepository = employeeRepository;
         _notificationService = notificationService;
+        _rabbitMqNotificationService = rabbitMqNotificationService;
+        _leaveBalanceRepository = leaveBalanceRepository;
         _logger = logger;
     }
 
@@ -308,6 +314,60 @@ public class RequestService : IRequestService
         // Send approval email for profile and time-off requests (not timesheet)
         await _notificationService.SendApprovalEmailAsync(updatedRequest, comment);
 
+        // Send notification to employee when time-off request is approved
+        var category = updatedRequest.RequestTypeLookup?.Category?.ToLower() ?? "";
+        if (category == "time-off")
+        {
+            try
+            {
+                var requester = updatedRequest.Requester ?? await _employeeRepository.GetByIdAsync(updatedRequest.RequesterEmployeeId);
+                if (requester != null)
+                {
+                    var requestTypeName = FormatRequestTypeName(requestTypeCode);
+                    var approver = updatedRequest.Approver ?? await _employeeRepository.GetByIdAsync(updatedRequest.ApproverEmployeeId ?? 0);
+                    var approverName = approver?.FullName ?? "Manager";
+
+                    // Build message with date range if available
+                    string message;
+                    if (updatedRequest.EffectiveFrom.HasValue && updatedRequest.EffectiveTo.HasValue)
+                    {
+                        var startDate = updatedRequest.EffectiveFrom.Value.ToString("MMMM dd, yyyy");
+                        var endDate = updatedRequest.EffectiveTo.Value.ToString("MMMM dd, yyyy");
+                        var duration = CalculateDuration(updatedRequest.EffectiveFrom.Value, updatedRequest.EffectiveTo.Value);
+                        message = $"Your {requestTypeName.ToLower()} request from {startDate} to {endDate} ({duration} day{(duration != 1 ? "s" : "")}) has been approved by {approverName}.";
+                    }
+                    else
+                    {
+                        message = $"Your {requestTypeName.ToLower()} request has been approved by {approverName}.";
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(comment))
+                    {
+                        message += $" Comment: {comment}";
+                    }
+
+                    await _rabbitMqNotificationService.SendNotificationAsync(new NotificationEvent
+                    {
+                        EmpId = requester.Id,
+                        Title = $"{requestTypeName} Request Approved",
+                        Message = message,
+                        Type = "success"
+                    });
+
+                    _logger.LogInformation(
+                        "Sent approval notification to employee {EmployeeId} for time-off request {RequestId}",
+                        requester.Id, updatedRequest.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to send approval notification to employee for time-off request {RequestId}",
+                    updatedRequest.Id);
+                // Don't throw - notification failure shouldn't fail the approval
+            }
+        }
+
         return await MapToRequestDtoAsync(updatedRequest);
     }
 
@@ -523,6 +583,23 @@ public class RequestService : IRequestService
         return Math.Max(1, days); // At least 1 day
     }
 
+    /// <summary>
+    /// Formats request type code into a human-readable name
+    /// </summary>
+    private static string FormatRequestTypeName(string requestTypeCode)
+    {
+        return requestTypeCode switch
+        {
+            "PROFILE_ID_CHANGE" => "Profile ID Change",
+            "PAID_LEAVE" => "Paid Leave",
+            "UNPAID_LEAVE" => "Unpaid Leave",
+            "PAID_SICK_LEAVE" => "Paid Sick Leave",
+            "UNPAID_SICK_LEAVE" => "Unpaid Sick Leave",
+            "WFH" => "Work From Home",
+            _ => requestTypeCode.Replace("_", " ")
+        };
+    }
+
     private RequestDetailsDto MapToRequestDetailsDto(RequestEntity request)
     {
         return new RequestDetailsDto
@@ -650,8 +727,8 @@ public class RequestService : IRequestService
                 break;
 
             case "time-off":
-                // Time-off specific approval logic (e.g., deduct leave balance)
-                // Currently handled elsewhere, but can be added here if needed
+                // Deduct leave balance for paid leave types
+                await DeductLeaveBalanceAsync(request, requestTypeCode);
                 break;
 
             case "timesheet":
@@ -696,6 +773,94 @@ public class RequestService : IRequestService
 
         // Return Task.CompletedTask to satisfy async signature
         await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Deducts leave balance when a paid time-off request is approved
+    /// </summary>
+    private async Task DeductLeaveBalanceAsync(RequestEntity request, string requestTypeCode)
+    {
+        // Only deduct for paid leave types
+        if (requestTypeCode != "PAID_LEAVE" && requestTypeCode != "PAID_SICK_LEAVE")
+        {
+            return;
+        }
+
+        // Ensure we have valid dates
+        if (!request.EffectiveFrom.HasValue || !request.EffectiveTo.HasValue)
+        {
+            _logger.LogWarning(
+                "Cannot deduct leave balance for request {RequestId}: missing EffectiveFrom or EffectiveTo dates",
+                request.Id);
+            return;
+        }
+
+        try
+        {
+            // Map request type to balance type
+            var balanceType = requestTypeCode == "PAID_LEAVE" ? "Annual Leave" : "Sick Leave";
+            var year = request.EffectiveFrom.Value.Year;
+
+            // Calculate duration
+            var duration = CalculateDuration(request.EffectiveFrom.Value, request.EffectiveTo.Value);
+
+            // Get or create leave balance
+            var balance = await _leaveBalanceRepository.GetLeaveBalanceAsync(
+                request.RequesterEmployeeId,
+                balanceType,
+                year);
+
+            if (balance == null)
+            {
+                _logger.LogWarning(
+                    "Leave balance not found for employee {EmployeeId}, balance type {BalanceType}, year {Year}. Creating new balance.",
+                    request.RequesterEmployeeId, balanceType, year);
+
+                // Create a new balance with default total
+                var defaultTotals = new Dictionary<string, decimal>
+                {
+                    { "Annual Leave", 15 },
+                    { "Sick Leave", 10 },
+                    { "Parental Leave", 14 },
+                    { "Other Leave", 5 }
+                };
+
+                balance = new LeaveBalance
+                {
+                    EmployeeId = request.RequesterEmployeeId,
+                    BalanceType = balanceType,
+                    Year = year,
+                    Total = defaultTotals.GetValueOrDefault(balanceType, 0),
+                    Used = 0
+                };
+            }
+
+            // Update used days
+            balance.Used += duration;
+
+            // Ensure used doesn't exceed total (shouldn't happen if validation worked, but safety check)
+            if (balance.Used > balance.Total)
+            {
+                _logger.LogWarning(
+                    "Leave balance used ({Used}) exceeds total ({Total}) for employee {EmployeeId}, balance type {BalanceType}, year {Year}",
+                    balance.Used, balance.Total, request.RequesterEmployeeId, balanceType, year);
+            }
+
+            // Save updated balance
+            await _leaveBalanceRepository.CreateOrUpdateLeaveBalanceAsync(balance);
+
+            _logger.LogInformation(
+                "Deducted {Duration} days from {BalanceType} balance for employee {EmployeeId} (year {Year}). New used: {Used}/{Total}",
+                duration, balanceType, request.RequesterEmployeeId, year, balance.Used, balance.Total);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to deduct leave balance for request {RequestId}",
+                request.Id);
+            // Don't throw - balance update failure shouldn't fail the approval
+            // But log it so it can be investigated
+        }
     }
 
     /// <summary>

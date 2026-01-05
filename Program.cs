@@ -43,12 +43,12 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => 
-        policy.RequireAssertion(context => 
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireAssertion(context =>
             context.User.HasRole("ADMIN")));
-    
-    options.AddPolicy("ManagerOrAdmin", policy => 
-        policy.RequireAssertion(context => 
+
+    options.AddPolicy("ManagerOrAdmin", policy =>
+        policy.RequireAssertion(context =>
             context.User.IsManagerOrAdmin()));
 });
 
@@ -133,6 +133,7 @@ builder.Services.AddSingleton<IConnection>(sp =>
 });
 
 builder.Services.AddScoped<IMessageProducerService, MessageProducerService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 //CORS
 
