@@ -130,14 +130,33 @@ public class RequestRepository : IRequestRepository
                 r.RequestTypeLookup.Category.ToLower() == normalizedCategory);
         }
 
-        if (dateFrom.HasValue)
+        // Date filtering: For profile requests, filter by requestedAt; for others, filter by effectiveFrom/effectiveTo
+        if (dateFrom.HasValue || dateTo.HasValue)
         {
-            query = query.Where(r => r.EffectiveFrom >= dateFrom.Value);
-        }
-
-        if (dateTo.HasValue)
-        {
-            query = query.Where(r => r.EffectiveTo <= dateTo.Value);
+            if (!string.IsNullOrEmpty(category) && category.ToLower() == "profile")
+            {
+                // For profile requests, filter by requestedAt
+                if (dateFrom.HasValue)
+                {
+                    query = query.Where(r => r.RequestedAt >= dateFrom.Value);
+                }
+                if (dateTo.HasValue)
+                {
+                    query = query.Where(r => r.RequestedAt <= dateTo.Value);
+                }
+            }
+            else
+            {
+                // For time-off and timesheet requests, filter by effectiveFrom/effectiveTo
+                if (dateFrom.HasValue)
+                {
+                    query = query.Where(r => r.EffectiveFrom >= dateFrom.Value);
+                }
+                if (dateTo.HasValue)
+                {
+                    query = query.Where(r => r.EffectiveTo <= dateTo.Value);
+                }
+            }
         }
 
         return await query.CountAsync();

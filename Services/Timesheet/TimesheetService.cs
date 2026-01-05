@@ -5,6 +5,7 @@ using EmployeeApi.Helpers;
 using EmployeeApi.Models;
 using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
+using RequestEntity = EmployeeApi.Models.Request;
 
 namespace EmployeeApi.Services.Timesheet;
 
@@ -122,7 +123,7 @@ public class TimesheetService : ITimesheetService
             throw new InvalidOperationException("Timesheet request type not found in database");
         }
 
-        var request = new Request
+        var request = new RequestEntity
         {
             RequestTypeId = timesheetRequestType.Id,
             RequesterEmployeeId = employeeId,
@@ -536,7 +537,7 @@ public class TimesheetService : ITimesheetService
         };
     }
 
-    private TimesheetListItem MapToTimesheetListItem(Request request)
+    private TimesheetListItem MapToTimesheetListItem(RequestEntity request)
     {
         var payload = !string.IsNullOrEmpty(request.Payload)
             ? JsonSerializer.Deserialize<TimesheetPayload>(request.Payload)
@@ -560,7 +561,7 @@ public class TimesheetService : ITimesheetService
         };
     }
 
-    private TimesheetApprovalItem MapToTimesheetApprovalItem(Request request)
+    private TimesheetApprovalItem MapToTimesheetApprovalItem(RequestEntity request)
     {
         var payload = !string.IsNullOrEmpty(request.Payload)
             ? JsonSerializer.Deserialize<TimesheetPayload>(request.Payload)

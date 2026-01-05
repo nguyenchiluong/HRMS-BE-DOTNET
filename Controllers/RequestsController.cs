@@ -156,7 +156,20 @@ public class RequestsController : ControllerBase
         {
             if (!ModelState.IsValid)
             {
-                return BadRequest(new { error = "Bad Request", message = "Invalid input data", details = ModelState });
+                var details = ModelState
+                    .Where(ms => ms.Value?.Errors.Count > 0)
+                    .Select(ms => new { field = ms.Key, message = string.Join("; ", ms.Value!.Errors.Select(e => e.ErrorMessage)) })
+                    .ToList();
+
+                return BadRequest(new
+                {
+                    error = new
+                    {
+                        code = "VALIDATION_ERROR",
+                        message = "Request validation failed",
+                        details = details
+                    }
+                });
             }
 
             // Get current user's employee ID from JWT token (maps email to employee_id)
@@ -169,10 +182,26 @@ public class RequestsController : ControllerBase
                 new { id = request.Id },
                 new { message = "Request created successfully", data = request });
         }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error creating request");
+            // Parse validation error message to extract field and message
+            var errorParts = ex.Message.Split(new string[] { ": " }, 2, StringSplitOptions.None);
+            var errorMessage = errorParts.Length > 1 ? errorParts[1] : ex.Message;
+
+            return BadRequest(new
+            {
+                error = new
+                {
+                    code = "VALIDATION_ERROR",
+                    message = errorMessage
+                }
+            });
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error creating request");
-            return StatusCode(500, new { error = "Internal Server Error", message = ex.Message });
+            return StatusCode(500, new { error = new { code = "INTERNAL_SERVER_ERROR", message = ex.Message } });
         }
     }
 
@@ -215,16 +244,16 @@ public class RequestsController : ControllerBase
     /// Cancel request
     /// </summary>
     [HttpPost("{id}/cancel")]
-    public async Task<ActionResult<object>> CancelRequest(int id)
+    public async Task<ActionResult<object>> CancelRequest(int id, [FromBody] CancelRequestDto? dto = null)
     {
         try
         {
             // Get current user's employee ID from JWT token (maps email to employee_id)
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
-            var result = await _requestService.CancelRequestAsync(id, currentEmployeeId);
+            var result = await _requestService.CancelRequestAsync(id, currentEmployeeId, dto?.Comment);
 
-            return Ok(new { message = "Request cancelled successfully" });
+            return Ok(new { message = "Request cancelled successfully", data = new { id = id.ToString(), status = "CANCELLED", updatedAt = DateTime.UtcNow.ToString("O") } });
         }
         catch (UnauthorizedAccessException ex)
         {
