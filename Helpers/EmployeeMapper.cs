@@ -42,6 +42,8 @@ public static class EmployeeMapper
             e.EmploymentTypeId,
             e.TimeTypeId,
             e.ManagerId,
+            e.Department?.Name,
+            e.Position?.Title,
             e.Status,
             e.CreatedAt,
             e.UpdatedAt

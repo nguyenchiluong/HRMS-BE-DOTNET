@@ -53,7 +53,8 @@ public class EmployeeService : IEmployeeService
 
     public async Task<EmployeeDto?> GetOneAsync(long id)
     {
-        var e = await _repo.GetByIdAsync(id);
+        // Load related entities so names (position/department) are populated
+        var e = await _repo.GetByIdWithDetailsAsync(id);
         return e is null ? null : EmployeeMapper.ToDto(e);
     }
 

@@ -15,6 +15,8 @@ public class EmployeeRepository : IEmployeeRepository
 
     public async Task<IReadOnlyList<Employee>> GetByManagerIdAsync(long managerId) =>
         await _db.Employees
+            .Include(e => e.Department)
+            .Include(e => e.Position)
             .Where(e => e.ManagerId == managerId)
             .OrderBy(e => e.Id)
             .AsNoTracking()
