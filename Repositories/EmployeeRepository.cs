@@ -13,6 +13,15 @@ public class EmployeeRepository : IEmployeeRepository
     public async Task<Employee?> GetByIdAsync(long id) =>
         await _db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
 
+    public async Task<IReadOnlyList<Employee>> GetByManagerIdAsync(long managerId) =>
+        await _db.Employees
+            .Include(e => e.Department)
+            .Include(e => e.Position)
+            .Where(e => e.ManagerId == managerId)
+            .OrderBy(e => e.Id)
+            .AsNoTracking()
+            .ToListAsync();
+
     public async Task<IReadOnlyList<Employee>> ListAsync(Expression<Func<Employee, bool>>? predicate = null)
     {
         IQueryable<Employee> query = _db.Employees.AsNoTracking();
@@ -91,42 +100,42 @@ public class EmployeeRepository : IEmployeeRepository
                 "INACTIVE" => "INACTIVE",
                 _ => s.ToUpper()
             }).ToList();
-            
+
             query = query.Where(e => e.Status != null && dbStatuses.Contains(e.Status));
         }
 
         // Department filter
         if (departments != null && departments.Count > 0)
         {
-            query = query.Where(e => e.Department != null && 
+            query = query.Where(e => e.Department != null &&
                 departments.Contains(e.Department.Name));
         }
 
         // Position filter
         if (positions != null && positions.Count > 0)
         {
-            query = query.Where(e => e.Position != null && 
+            query = query.Where(e => e.Position != null &&
                 positions.Contains(e.Position.Title));
         }
 
         // Job level filter
         if (jobLevels != null && jobLevels.Count > 0)
         {
-            query = query.Where(e => e.JobLevel != null && 
+            query = query.Where(e => e.JobLevel != null &&
                 jobLevels.Contains(e.JobLevel.Name));
         }
 
         // Employment type filter
         if (employmentTypes != null && employmentTypes.Count > 0)
         {
-            query = query.Where(e => e.EmploymentType != null && 
+            query = query.Where(e => e.EmploymentType != null &&
                 employmentTypes.Contains(e.EmploymentType.Name));
         }
 
         // Time type filter
         if (timeTypes != null && timeTypes.Count > 0)
         {
-            query = query.Where(e => e.TimeType != null && 
+            query = query.Where(e => e.TimeType != null &&
                 timeTypes.Contains(e.TimeType.Name));
         }
 
@@ -146,17 +155,17 @@ public class EmployeeRepository : IEmployeeRepository
     public async Task<(int Total, int Onboarding, int Resigned, int Managers)> GetStatsAsync()
     {
         var total = await _db.Employees.CountAsync();
-        
+
         var onboarding = await _db.Employees
             .CountAsync(e => e.Status == "PENDING_ONBOARDING");
-        
+
         var resigned = await _db.Employees
             .CountAsync(e => e.Status == "INACTIVE");
-        
+
         var managers = await _db.Employees
             .Include(e => e.Position)
             .Include(e => e.JobLevel)
-            .CountAsync(e => 
+            .CountAsync(e =>
                 (e.Position != null && e.Position.Title.ToLower().Contains("manager")) ||
                 (e.JobLevel != null && e.JobLevel.Name.ToLower() == "manager"));
 

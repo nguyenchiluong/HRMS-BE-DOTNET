@@ -30,6 +30,8 @@ public record EmployeeDto(
     long? EmploymentTypeId,
     long? TimeTypeId,
     long? ManagerId,
+    string? DepartmentName,
+    string? PositionTitle,
     string? Status,
     DateTime? CreatedAt,
     DateTime? UpdatedAt
