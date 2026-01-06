@@ -7,6 +7,7 @@ using EmployeeApi.Repositories;
 using EmployeeApi.Services;
 using EmployeeApi.Services.Employee;
 using EmployeeApi.Services.Timesheet;
+using EmployeeApi.Services.RequestNotifications;
 using EmployeeApi.Extensions;
 using RabbitMQ.Client;
 
@@ -42,12 +43,12 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("AdminOnly", policy => 
-        policy.RequireAssertion(context => 
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireAssertion(context =>
             context.User.HasRole("ADMIN")));
-    
-    options.AddPolicy("ManagerOrAdmin", policy => 
-        policy.RequireAssertion(context => 
+
+    options.AddPolicy("ManagerOrAdmin", policy =>
+        policy.RequireAssertion(context =>
             context.User.IsManagerOrAdmin()));
 });
 
@@ -94,6 +95,7 @@ builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();
 builder.Services.AddScoped<IBankAccountService, BankAccountService>();
 builder.Services.AddScoped<IRequestRepository, RequestRepository>();
 builder.Services.AddScoped<IRequestService, RequestService>();
+builder.Services.AddScoped<IRequestNotificationService, RequestNotificationService>();
 builder.Services.AddScoped<ILeaveBalanceRepository, LeaveBalanceRepository>();
 builder.Services.AddScoped<ITimeOffService, TimeOffService>();
 builder.Services.AddScoped<IRequestTypeRepository, RequestTypeRepository>();
@@ -131,6 +133,7 @@ builder.Services.AddSingleton<IConnection>(sp =>
 });
 
 builder.Services.AddScoped<IMessageProducerService, MessageProducerService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 //CORS
 
