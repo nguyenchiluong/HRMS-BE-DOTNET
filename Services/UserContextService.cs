@@ -22,7 +22,7 @@ public class UserContextService : IUserContextService
     public async Task<long> GetEmployeeIdFromClaimsAsync(ClaimsPrincipal principal)
     {
         // First, try to get employee_id directly from token if it exists
-        var employeeIdClaim = principal.FindFirst("empId")?.Value 
+        var employeeIdClaim = principal.FindFirst("empId")?.Value
                            ?? principal.FindFirst("employee_id")?.Value;
 
         if (!string.IsNullOrEmpty(employeeIdClaim) && long.TryParse(employeeIdClaim, out var employeeId))
@@ -50,8 +50,8 @@ public class UserContextService : IUserContextService
 
     public string GetEmailFromClaims(ClaimsPrincipal principal)
     {
-        return principal.FindFirst("mail")?.Value 
-            ?? principal.FindFirst("email")?.Value 
+        return principal.FindFirst("mail")?.Value
+            ?? principal.FindFirst("email")?.Value
             ?? principal.FindFirst(ClaimTypes.Email)?.Value
             ?? principal.FindFirst("sub")?.Value
             ?? throw new UnauthorizedAccessException("Email not found in token");
@@ -60,9 +60,9 @@ public class UserContextService : IUserContextService
     public string GetRoleFromClaims(ClaimsPrincipal principal)
     {
         // Try standard role claim first
-        var roleClaim = principal.FindFirst("role")?.Value 
+        var roleClaim = principal.FindFirst("role")?.Value
                      ?? principal.FindFirst(ClaimTypes.Role)?.Value;
-        
+
         if (!string.IsNullOrEmpty(roleClaim))
         {
             return roleClaim;
@@ -70,7 +70,7 @@ public class UserContextService : IUserContextService
 
         // Check for roles array (the Java service uses 'roles')
         var roles = principal.FindAll("roles").Select(c => c.Value).ToList();
-        
+
         if (roles.Any())
         {
             // Map Java roles to application roles
@@ -80,7 +80,7 @@ public class UserContextService : IUserContextService
                 return "Manager";
             if (roles.Any(r => r.Equals("USER", StringComparison.OrdinalIgnoreCase)))
                 return "Employee";
-                
+
             return roles.First();
         }
 
