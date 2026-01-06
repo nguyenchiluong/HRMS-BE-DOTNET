@@ -4,6 +4,7 @@ using EmployeeApi.Models;
 using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
 using EmployeeApi.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EmployeeApi.Services.Employee;
@@ -105,6 +106,7 @@ public class EmployeeService : IEmployeeService
             TimeTypeId = input.TimeTypeId,
             StartDate = input.StartDate,
             ManagerId = input.ManagerId,
+            HrId = input.HrId,
             Status = EmployeeStatus.PendingOnboarding.ToApiString(),
             CreatedAt = DateTime.Now,
             UpdatedAt = DateTime.Now
@@ -294,8 +296,42 @@ public class EmployeeService : IEmployeeService
 
         if (input.ManagerId.HasValue)
         {
-            var manager = await _repo.GetByIdAsync(input.ManagerId.Value)
+            var manager = await _db.Employees
+                .Include(e => e.JobLevel)
+                .FirstOrDefaultAsync(e => e.Id == input.ManagerId.Value)
                 ?? throw new ArgumentException($"Manager with ID {input.ManagerId} does not exist");
+
+            if (manager.Status != "ACTIVE")
+                throw new ArgumentException($"Manager with ID {input.ManagerId} is not active");
+
+            // Check if employee can serve as manager - only based on job levels
+            var isManager = manager.JobLevel != null && (
+                manager.JobLevel.Name == "Manager" ||
+                manager.JobLevel.Name == "Director" ||
+                manager.JobLevel.Name == "Principal"
+            );
+
+            if (!isManager)
+                throw new ArgumentException($"Employee with ID {input.ManagerId} cannot serve as a manager");
+        }
+
+        if (input.HrId.HasValue)
+        {
+            var hr = await _db.Employees
+                .Include(e => e.Position)
+                .Include(e => e.Department)
+                .FirstOrDefaultAsync(e => e.Id == input.HrId.Value)
+                ?? throw new ArgumentException($"HR personnel with ID {input.HrId} does not exist");
+
+            if (hr.Status != "ACTIVE")
+                throw new ArgumentException($"HR personnel with ID {input.HrId} is not active");
+
+            // Check if employee is HR personnel
+            var isHr = hr.DepartmentId == 6 || // Department ID 6 = "Human Resources"
+                (hr.Position != null && (hr.Position.Title.Contains("HR")));
+
+            if (!isHr)
+                throw new ArgumentException($"Employee with ID {input.HrId} is not HR personnel");
         }
     }
 
@@ -489,6 +525,119 @@ public class EmployeeService : IEmployeeService
         await _repo.SaveChangesAsync();
 
         return EmployeeMapper.ToDto(employee);
+    }
+
+    public async Task<IEnumerable<ManagerOrHrDto>> GetManagersAsync(string? search = null)
+    {
+        // Build query for managers - only based on job levels
+        IQueryable<Models.Employee> query = _db.Employees
+            .Include(e => e.Position)
+            .Include(e => e.Department)
+            .Include(e => e.JobLevel)
+            .Include(e => e.EmploymentType)
+            .Include(e => e.TimeType)
+            .AsNoTracking()
+            .Where(e => e.Status == "ACTIVE" &&
+                e.JobLevel != null && (
+                    e.JobLevel.Name == "Manager" ||
+                    e.JobLevel.Name == "Director" ||
+                    e.JobLevel.Name == "Principal"
+                ));
+
+        // Apply search filter if provided
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            long? searchId = null;
+            if (long.TryParse(search, out var parsedId))
+            {
+                searchId = parsedId;
+            }
+
+            query = query.Where(e =>
+                (searchId.HasValue && e.Id == searchId.Value) ||
+                e.FullName.ToLower().Contains(searchLower) ||
+                e.Email.ToLower().Contains(searchLower)
+            );
+        }
+
+        var managers = await query.OrderBy(e => e.FullName).ToListAsync();
+
+        return managers.Select(e => new ManagerOrHrDto(
+            Id: e.Id,
+            FullName: e.FullName,
+            WorkEmail: e.Email,
+            Position: e.Position?.Title,
+            PositionId: e.PositionId,
+            JobLevel: e.JobLevel?.Name,
+            JobLevelId: e.JobLevelId,
+            Department: e.Department?.Name,
+            DepartmentId: e.DepartmentId,
+            EmploymentType: e.EmploymentType?.Name,
+            EmploymentTypeId: e.EmploymentTypeId,
+            TimeType: e.TimeType?.Name,
+            TimeTypeId: e.TimeTypeId
+        ));
+    }
+
+    public async Task<IEnumerable<ManagerOrHrDto>> GetHrPersonnelAsync(string? search = null)
+    {
+        // Build query for HR personnel
+        IQueryable<Models.Employee> query = _db.Employees
+            .Include(e => e.Position)
+            .Include(e => e.Department)
+            .Include(e => e.JobLevel)
+            .Include(e => e.EmploymentType)
+            .Include(e => e.TimeType)
+            .AsNoTracking()
+            .Where(e => e.Status == "ACTIVE" && (
+                // Employees in HR department (Department ID 6 = "Human Resources")
+                e.DepartmentId == 6 ||
+                // Employees with HR-related positions
+                (e.Position != null && (
+                    e.Position.Title.Contains("HR") ||
+                    e.Position.Title == "HR Specialist" ||
+                    e.Position.Title == "HR Manager" ||
+                    e.Position.Title == "HR Coordinator" ||
+                    e.Position.Title == "HR Director" ||
+                    e.Position.Title == "HR Business Partner"
+                ))
+            ));
+
+        // Apply search filter if provided
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            long? searchId = null;
+            if (long.TryParse(search, out var parsedId))
+            {
+                searchId = parsedId;
+            }
+
+            query = query.Where(e =>
+                (searchId.HasValue && e.Id == searchId.Value) ||
+                e.FullName.ToLower().Contains(searchLower) ||
+                e.Email.ToLower().Contains(searchLower)
+            );
+        }
+
+        var hrPersonnel = await query.OrderBy(e => e.FullName).ToListAsync();
+
+        return hrPersonnel.Select(e => new ManagerOrHrDto(
+            Id: e.Id,
+            FullName: e.FullName,
+            WorkEmail: e.Email,
+            Position: e.Position?.Title,
+            PositionId: e.PositionId,
+            JobLevel: e.JobLevel?.Name,
+            JobLevelId: e.JobLevelId,
+            Department: e.Department?.Name,
+            DepartmentId: e.DepartmentId,
+            EmploymentType: e.EmploymentType?.Name,
+            EmploymentTypeId: e.EmploymentTypeId,
+            TimeType: e.TimeType?.Name,
+            TimeTypeId: e.TimeTypeId
+        ));
     }
 
     #endregion

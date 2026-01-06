@@ -68,6 +68,40 @@ public class EmployeesController : ControllerBase
     }
 
     /// <summary>
+    /// Gets all employees who can serve as managers
+    /// </summary>
+    [HttpGet("managers")]
+    public async Task<ActionResult<IEnumerable<ManagerOrHrDto>>> GetManagers([FromQuery] string? search = null)
+    {
+        try
+        {
+            var managers = await _service.GetManagersAsync(search);
+            return Ok(managers);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gets all employees who are HR personnel
+    /// </summary>
+    [HttpGet("hr")]
+    public async Task<ActionResult<IEnumerable<ManagerOrHrDto>>> GetHrPersonnel([FromQuery] string? search = null)
+    {
+        try
+        {
+            var hrPersonnel = await _service.GetHrPersonnelAsync(search);
+            return Ok(hrPersonnel);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Parses an array of strings (from multiple query params or comma-separated values) into a list
     /// Supports both formats: ?department=Product&department=Engineering OR ?department=Product,Engineering
     /// </summary>

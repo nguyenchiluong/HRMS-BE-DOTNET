@@ -53,5 +53,15 @@ public interface IEmployeeService
     /// Updates the current employee's profile information
     /// </summary>
     Task<EmployeeDto> UpdateProfileAsync(long employeeId, UpdateProfileDto input);
+
+    /// <summary>
+    /// Gets all employees who can serve as managers
+    /// </summary>
+    Task<IEnumerable<ManagerOrHrDto>> GetManagersAsync(string? search = null);
+
+    /// <summary>
+    /// Gets all employees who are HR personnel
+    /// </summary>
+    Task<IEnumerable<ManagerOrHrDto>> GetHrPersonnelAsync(string? search = null);
 }
 

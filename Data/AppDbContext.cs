@@ -84,6 +84,13 @@ public class AppDbContext : DbContext
             .HasForeignKey(e => e.ManagerId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Self-referential relationship for HR assignment
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.Hr)
+            .WithMany()
+            .HasForeignKey(e => e.HrId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<Department>()
             .HasOne(d => d.Manager)
             .WithMany()
