@@ -14,7 +14,9 @@ public interface IRequestService
         int page = 1,
         int limit = 20,
         long? managerId = null,
-        bool filterByManagerReports = false);
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false);
 
     Task<RequestDetailsDto?> GetRequestByIdAsync(int id);
 

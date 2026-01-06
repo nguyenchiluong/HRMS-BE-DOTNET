@@ -27,7 +27,9 @@ public class RequestRepository : IRequestRepository
         int page = 1,
         int limit = 20,
         long? managerId = null,
-        bool filterByManagerReports = false)
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false)
     {
         var query = _context.Requests
             .Include(r => r.Requester)
@@ -46,10 +48,9 @@ public class RequestRepository : IRequestRepository
         {
             var directReportIds = await GetDirectReportEmployeeIdsAsync(managerId.Value);
             _logger?.LogInformation(
-                "GetRequestsAsync - Manager filtering: ManagerId={ManagerId}, DirectReportIds=[{DirectReportIds}], EmployeeId filter={EmployeeId}",
+                "GetRequestsAsync - Manager filtering: ManagerId={ManagerId}, DirectReportIds=[{DirectReportIds}]",
                 managerId.Value,
-                string.Join(", ", directReportIds),
-                employeeId?.ToString() ?? "null");
+                string.Join(", ", directReportIds));
 
             if (directReportIds.Count > 0)
             {
@@ -60,6 +61,16 @@ public class RequestRepository : IRequestRepository
                 // Manager has no direct reports, return empty result
                 query = query.Where(r => false);
             }
+        }
+
+        // Filter by approver for profile requests (admins only see requests assigned to them)
+        if (filterByApprover && approverId.HasValue)
+        {
+            query = query.Where(r => r.ApproverEmployeeId == approverId.Value);
+            _logger?.LogInformation(
+                "GetRequestsAsync - Approver filtering applied: ApproverId={ApproverId}, Category={Category}",
+                approverId.Value,
+                category ?? "null");
         }
 
         if (!string.IsNullOrEmpty(status))
@@ -100,7 +111,9 @@ public class RequestRepository : IRequestRepository
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         long? managerId = null,
-        bool filterByManagerReports = false)
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false)
     {
         var query = _context.Requests.AsQueryable();
 
@@ -114,6 +127,12 @@ public class RequestRepository : IRequestRepository
         {
             var directReportIds = await GetDirectReportEmployeeIdsAsync(managerId.Value);
             query = query.Where(r => directReportIds.Contains(r.RequesterEmployeeId));
+        }
+
+        // Filter by approver for profile requests (admins only see requests assigned to them)
+        if (filterByApprover && approverId.HasValue)
+        {
+            query = query.Where(r => r.ApproverEmployeeId == approverId.Value);
         }
 
         if (!string.IsNullOrEmpty(status))

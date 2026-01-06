@@ -123,6 +123,12 @@ public class Employee
     // Navigation property for direct reports
     public ICollection<Employee>? DirectReports { get; set; }
 
+    [Column("hr_id")]
+    public long? HrId { get; set; }
+
+    [ForeignKey("HrId")]
+    public Employee? Hr { get; set; }
+
     [Column("status")]
     public string? Status { get; set; }
 

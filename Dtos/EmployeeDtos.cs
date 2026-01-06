@@ -30,6 +30,7 @@ public record EmployeeDto(
     long? EmploymentTypeId,
     long? TimeTypeId,
     long? ManagerId,
+    long? HrId,
     string? DepartmentName,
     string? PositionTitle,
     string? Status,
@@ -67,6 +68,7 @@ public class InitialProfileDto
     public long TimeTypeId { get; set; }
     public DateOnly StartDate { get; set; }
     public long? ManagerId { get; set; }
+    public long? HrId { get; set; }
 }
 
 /// <summary>
@@ -207,7 +209,13 @@ public record FilteredEmployeeDto(
     string? Department,
     string Status,
     string? EmploymentType,
-    string? TimeType
+    string? TimeType,
+    long? ManagerId,
+    string? ManagerName,
+    string? ManagerEmail,
+    long? HrId,
+    string? HrName,
+    string? HrEmail
 );
 
 /// <summary>
@@ -236,4 +244,23 @@ public record EmployeeStatsDto(
     int Onboarding,
     int Resigned,
     int Managers
+);
+
+/// <summary>
+/// DTO for manager or HR personnel listing
+/// </summary>
+public record ManagerOrHrDto(
+    long Id,
+    string FullName,
+    string WorkEmail,
+    string? Position,
+    long? PositionId,
+    string? JobLevel,
+    long? JobLevelId,
+    string? Department,
+    long? DepartmentId,
+    string? EmploymentType,
+    long? EmploymentTypeId,
+    string? TimeType,
+    long? TimeTypeId
 );

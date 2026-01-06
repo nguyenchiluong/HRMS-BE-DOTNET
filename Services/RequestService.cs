@@ -48,13 +48,15 @@ public class RequestService : IRequestService
         int page = 1,
         int limit = 20,
         long? managerId = null,
-        bool filterByManagerReports = false)
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false)
     {
         var requests = await _requestRepository.GetRequestsAsync(
-            employeeId, status, category, dateFrom, dateTo, page, limit, managerId, filterByManagerReports);
+            employeeId, status, category, dateFrom, dateTo, page, limit, managerId, filterByManagerReports, approverId, filterByApprover);
 
         var totalCount = await _requestRepository.GetRequestsCountAsync(
-            employeeId, status, category, dateFrom, dateTo, managerId, filterByManagerReports);
+            employeeId, status, category, dateFrom, dateTo, managerId, filterByManagerReports, approverId, filterByApprover);
 
         var requestDtos = new List<RequestDto>();
         foreach (var request in requests)
@@ -152,10 +154,43 @@ public class RequestService : IRequestService
             ? DateTime.SpecifyKind(dto.EffectiveTo.Value, DateTimeKind.Utc)
             : (DateTime?)null;
 
+        // For profile requests, assign approver based on employee's HR admin (hrId)
+        long? approverEmployeeId = null;
+        if (requestTypeLookup.Category?.ToLower() == "profile")
+        {
+            var requester = await _employeeRepository.GetByIdAsync(requesterEmployeeId);
+            if (requester == null)
+            {
+                throw new ArgumentException($"Employee with ID {requesterEmployeeId} not found");
+            }
+
+            if (requester.HrId.HasValue)
+            {
+                // Verify that the HR admin exists and is active
+                var hrAdmin = await _employeeRepository.GetByIdAsync(requester.HrId.Value);
+                if (hrAdmin == null)
+                {
+                    throw new ArgumentException($"HR admin with ID {requester.HrId.Value} not found. Please contact support to assign an HR admin.");
+                }
+
+                if (hrAdmin.Status != "ACTIVE")
+                {
+                    throw new ArgumentException($"HR admin with ID {requester.HrId.Value} is not active. Please contact support.");
+                }
+
+                approverEmployeeId = requester.HrId.Value;
+            }
+            else
+            {
+                throw new ArgumentException("No HR admin is assigned to this employee. Please contact support to assign an HR admin before submitting a profile change request.");
+            }
+        }
+
         var request = new RequestEntity
         {
             RequestTypeId = requestTypeLookup.Id,
             RequesterEmployeeId = requesterEmployeeId,
+            ApproverEmployeeId = approverEmployeeId,
             EffectiveFrom = effectiveFrom,
             EffectiveTo = effectiveTo,
             Reason = dto.Reason,
@@ -186,6 +221,37 @@ public class RequestService : IRequestService
                     createdRequest.Payload = JsonSerializer.Serialize(payloadDict);
                     createdRequest = await _requestRepository.UpdateRequestAsync(createdRequest);
                 }
+            }
+        }
+
+        // Send notification when profile request is created
+        if (requestTypeLookup.Category?.ToLower() == "profile" && approverEmployeeId.HasValue)
+        {
+            try
+            {
+                var requester = await _employeeRepository.GetByIdAsync(requesterEmployeeId);
+                if (requester != null)
+                {
+                    var requestTypeName = FormatRequestTypeName(requestTypeLookup.Code);
+                    await _rabbitMqNotificationService.SendNotificationAsync(new NotificationEvent
+                    {
+                        EmpId = approverEmployeeId.Value,
+                        Title = $"New {requestTypeName} Request",
+                        Message = $"{requester.FullName} has submitted a {requestTypeName.ToLower()} request. Please review and approve.",
+                        Type = "info"
+                    });
+
+                    _logger.LogInformation(
+                        "Sent notification to admin {AdminId} for new profile request {RequestId} from employee {EmployeeId}",
+                        approverEmployeeId.Value, createdRequest.Id, requesterEmployeeId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to send notification to admin for profile request {RequestId}",
+                    createdRequest.Id);
+                // Don't throw - notification failure shouldn't fail the request creation
             }
         }
 
@@ -314,9 +380,9 @@ public class RequestService : IRequestService
         // Send approval email for profile and time-off requests (not timesheet)
         await _notificationService.SendApprovalEmailAsync(updatedRequest, comment);
 
-        // Send notification to employee when time-off request is approved
+        // Send notification to employee when request is approved
         var category = updatedRequest.RequestTypeLookup?.Category?.ToLower() ?? "";
-        if (category == "time-off")
+        if (category == "time-off" || category == "profile")
         {
             try
             {
@@ -325,11 +391,11 @@ public class RequestService : IRequestService
                 {
                     var requestTypeName = FormatRequestTypeName(requestTypeCode);
                     var approver = updatedRequest.Approver ?? await _employeeRepository.GetByIdAsync(updatedRequest.ApproverEmployeeId ?? 0);
-                    var approverName = approver?.FullName ?? "Manager";
+                    var approverName = approver?.FullName ?? "Admin";
 
-                    // Build message with date range if available
+                    // Build message
                     string message;
-                    if (updatedRequest.EffectiveFrom.HasValue && updatedRequest.EffectiveTo.HasValue)
+                    if (category == "time-off" && updatedRequest.EffectiveFrom.HasValue && updatedRequest.EffectiveTo.HasValue)
                     {
                         var startDate = updatedRequest.EffectiveFrom.Value.ToString("MMMM dd, yyyy");
                         var endDate = updatedRequest.EffectiveTo.Value.ToString("MMMM dd, yyyy");
@@ -355,15 +421,15 @@ public class RequestService : IRequestService
                     });
 
                     _logger.LogInformation(
-                        "Sent approval notification to employee {EmployeeId} for time-off request {RequestId}",
-                        requester.Id, updatedRequest.Id);
+                        "Sent approval notification to employee {EmployeeId} for {Category} request {RequestId}",
+                        requester.Id, category, updatedRequest.Id);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Failed to send approval notification to employee for time-off request {RequestId}",
-                    updatedRequest.Id);
+                    "Failed to send approval notification to employee for {Category} request {RequestId}",
+                    category, updatedRequest.Id);
                 // Don't throw - notification failure shouldn't fail the approval
             }
         }
@@ -389,6 +455,43 @@ public class RequestService : IRequestService
 
         // Send rejection email for profile and time-off requests (not timesheet)
         await _notificationService.SendRejectionEmailAsync(updatedRequest, reason);
+
+        // Send notification to employee when request is rejected
+        var category = updatedRequest.RequestTypeLookup?.Category?.ToLower() ?? "";
+        if (category == "time-off" || category == "profile")
+        {
+            try
+            {
+                var requester = updatedRequest.Requester ?? await _employeeRepository.GetByIdAsync(updatedRequest.RequesterEmployeeId);
+                if (requester != null)
+                {
+                    var requestTypeName = FormatRequestTypeName(requestTypeCode);
+                    var approver = updatedRequest.Approver ?? await _employeeRepository.GetByIdAsync(updatedRequest.ApproverEmployeeId ?? 0);
+                    var approverName = approver?.FullName ?? "Admin";
+
+                    var message = $"Your {requestTypeName.ToLower()} request has been rejected by {approverName}. Reason: {reason}";
+
+                    await _rabbitMqNotificationService.SendNotificationAsync(new NotificationEvent
+                    {
+                        EmpId = requester.Id,
+                        Title = $"{requestTypeName} Request Rejected",
+                        Message = message,
+                        Type = "error"
+                    });
+
+                    _logger.LogInformation(
+                        "Sent rejection notification to employee {EmployeeId} for {Category} request {RequestId}",
+                        requester.Id, category, updatedRequest.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Failed to send rejection notification to employee for {Category} request {RequestId}",
+                    category, updatedRequest.Id);
+                // Don't throw - notification failure shouldn't fail the rejection
+            }
+        }
 
         return await MapToRequestDtoAsync(updatedRequest);
     }
