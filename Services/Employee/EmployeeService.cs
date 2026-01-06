@@ -323,10 +323,14 @@ public class EmployeeService : IEmployeeService
     private async Task<string?> RegisterAuthAccountAsync(Models.Employee employee)
     {
         var generatedPassword = _authService.GenerateSecurePassword();
+
+        // HR Specialist (Position ID 9) should have Admin role
+        var role = employee.PositionId == 9 ? "ADMIN" : "USER";
+
         var authResult = await _authService.RegisterAccountAsync(
             employee.Email,
             generatedPassword,
-            "USER",
+            role,
             employee.Id);
 
         if (!authResult.Success)

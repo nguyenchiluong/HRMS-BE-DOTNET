@@ -4,6 +4,7 @@ using EmployeeApi.Models.Enums;
 using EmployeeApi.Repositories;
 using EmployeeApi.Helpers;
 using System.Text.Json;
+using RequestEntity = EmployeeApi.Models.Request;
 
 namespace EmployeeApi.Services;
 
@@ -12,17 +13,23 @@ public class TimeOffService : ITimeOffService
     private readonly IRequestRepository _requestRepository;
     private readonly ILeaveBalanceRepository _leaveBalanceRepository;
     private readonly IRequestTypeRepository _requestTypeRepository;
+    private readonly IEmployeeRepository _employeeRepository;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<TimeOffService> _logger;
 
     public TimeOffService(
         IRequestRepository requestRepository,
         ILeaveBalanceRepository leaveBalanceRepository,
         IRequestTypeRepository requestTypeRepository,
+        IEmployeeRepository employeeRepository,
+        INotificationService notificationService,
         ILogger<TimeOffService> logger)
     {
         _requestRepository = requestRepository;
         _leaveBalanceRepository = leaveBalanceRepository;
         _requestTypeRepository = requestTypeRepository;
+        _employeeRepository = employeeRepository;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -84,6 +91,16 @@ public class TimeOffService : ITimeOffService
             }
         }
 
+        // Get employee and manager for approver assignment
+        var employee = await _employeeRepository.GetByIdAsync(employeeId);
+        if (employee == null)
+        {
+            throw new InvalidOperationException("Employee not found");
+        }
+
+        // Get manager from employee's manager_id (hierarchical reporting)
+        var approverEmployeeId = employee.ManagerId;
+
         // Generate request ID
         var requestId = await GenerateRequestIdAsync();
 
@@ -99,10 +116,11 @@ public class TimeOffService : ITimeOffService
         var effectiveFrom = DateTime.SpecifyKind(dto.StartDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
         var effectiveTo = DateTime.SpecifyKind(dto.EndDate.ToDateTime(TimeOnly.MaxValue), DateTimeKind.Utc);
 
-        var request = new Request
+        var request = new RequestEntity
         {
             RequestTypeId = requestTypeLookup.Id,
             RequesterEmployeeId = employeeId,
+            ApproverEmployeeId = approverEmployeeId,
             Status = RequestStatus.Pending,
             RequestedAt = DateTime.UtcNow,
             EffectiveFrom = effectiveFrom,
@@ -114,6 +132,28 @@ public class TimeOffService : ITimeOffService
         };
 
         var createdRequest = await _requestRepository.CreateRequestAsync(request);
+
+        // Send notification to manager if approver is set
+        if (approverEmployeeId.HasValue)
+        {
+            try
+            {
+                var requestTypeName = FormatRequestTypeName(requestTypeLookup.Code);
+                await _notificationService.SendNotificationAsync(new NotificationEvent
+                {
+                    EmpId = approverEmployeeId.Value,
+                    Title = $"New {requestTypeName} Request",
+                    Message = $"{employee.FullName} has submitted a {requestTypeName.ToLower()} request from {dto.StartDate:MMMM dd, yyyy} to {dto.EndDate:MMMM dd, yyyy} ({duration} day{(duration != 1 ? "s" : "")}). Please review and approve.",
+                    Type = "info"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send notification to manager {ManagerId} for time-off request {RequestId}",
+                    approverEmployeeId.Value, createdRequest.Id);
+                // Don't throw - notification failure shouldn't fail the request creation
+            }
+        }
 
         return new TimeOffRequestResponseDto
         {
@@ -298,7 +338,7 @@ public class TimeOffService : ITimeOffService
 
     public async Task<TimeOffRequestResponseDto> CancelTimeOffRequestAsync(string requestId, long employeeId, string? comment)
     {
-        Request? requestToCancel = null;
+        RequestEntity? requestToCancel = null;
 
         // Parse request ID (format: REQ-XXX)
         var idPart = requestId.Replace("REQ-", "");
@@ -439,5 +479,21 @@ public class TimeOffService : ITimeOffService
         return totalDays;
     }
 
+    /// <summary>
+    /// Formats request type code into a human-readable name
+    /// </summary>
+    private static string FormatRequestTypeName(string requestTypeCode)
+    {
+        return requestTypeCode switch
+        {
+            "PROFILE_ID_CHANGE" => "Profile ID Change",
+            "PAID_LEAVE" => "Paid Leave",
+            "UNPAID_LEAVE" => "Unpaid Leave",
+            "PAID_SICK_LEAVE" => "Paid Sick Leave",
+            "UNPAID_SICK_LEAVE" => "Unpaid Sick Leave",
+            "WFH" => "Work From Home",
+            _ => requestTypeCode.Replace("_", " ")
+        };
+    }
 }
 

@@ -22,7 +22,7 @@ public interface IRequestService
 
     Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, long requesterEmployeeId);
 
-    Task<bool> CancelRequestAsync(int id, long requesterEmployeeId);
+    Task<bool> CancelRequestAsync(int id, long requesterEmployeeId, string? comment = null);
 
     Task<RequestDto> ApproveRequestAsync(int id, long approverEmployeeId, string? comment);
 

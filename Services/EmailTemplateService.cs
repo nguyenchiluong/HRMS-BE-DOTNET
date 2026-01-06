@@ -9,6 +9,16 @@ public interface IEmailTemplateService
     /// Generates the HTML content for the onboarding welcome email
     /// </summary>
     string GenerateOnboardingEmail(OnboardingEmailData data);
+
+    /// <summary>
+    /// Generates the HTML content for request approval email
+    /// </summary>
+    string GenerateRequestApprovalEmail(RequestNotificationEmailData data);
+
+    /// <summary>
+    /// Generates the HTML content for request rejection email
+    /// </summary>
+    string GenerateRequestRejectionEmail(RequestNotificationEmailData data);
 }
 
 /// <summary>
@@ -20,6 +30,21 @@ public record OnboardingEmailData(
     string OnboardingLink,
     string? StartDate,
     string? GeneratedPassword = null
+);
+
+/// <summary>
+/// Data required for generating request notification emails
+/// </summary>
+public record RequestNotificationEmailData(
+    string EmployeeName,
+    string RequestType,
+    string RequestId,
+    string? StartDate,
+    string? EndDate,
+    int? Duration,
+    string? Comment,
+    string? RejectionReason,
+    string ApproverName
 );
 
 public class EmailTemplateService : IEmailTemplateService
@@ -62,6 +87,114 @@ public class EmailTemplateService : IEmailTemplateService
         <p style=""font-size: 14px; color: #666;"">Start date: <strong>{data.StartDate ?? "To be confirmed"}</strong></p>
         
         <p style=""font-size: 16px; margin-top: 30px;"">If you have any questions, please don't hesitate to reach out to your HR representative.</p>
+        
+        <p style=""font-size: 16px;"">Best regards,<br><strong>HR Team</strong></p>
+    </div>
+    
+    <div style=""text-align: center; padding: 20px; font-size: 12px; color: #888;"">
+        <p>This is an automated message. Please do not reply to this email.</p>
+    </div>
+</body>
+</html>";
+    }
+
+    public string GenerateRequestApprovalEmail(RequestNotificationEmailData data)
+    {
+        var dateInfo = "";
+        if (!string.IsNullOrEmpty(data.StartDate) && !string.IsNullOrEmpty(data.EndDate))
+        {
+            dateInfo = $@"
+        <p style=""font-size: 14px; color: #666;""><strong>Date Range:</strong> {data.StartDate} to {data.EndDate}</p>";
+            if (data.Duration.HasValue)
+            {
+                dateInfo += $@"
+        <p style=""font-size: 14px; color: #666;""><strong>Duration:</strong> {data.Duration} day{(data.Duration.Value != 1 ? "s" : "")}</p>";
+            }
+        }
+
+        var commentSection = !string.IsNullOrWhiteSpace(data.Comment)
+            ? $@"
+        <div style=""background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin: 20px 0;"">
+            <p style=""font-size: 14px; color: #155724; margin: 0;""><strong>Approver Comment:</strong></p>
+            <p style=""font-size: 14px; color: #155724; margin: 5px 0 0 0;"">{data.Comment}</p>
+        </div>"
+            : "";
+
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+</head>
+<body style=""font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;"">
+    <div style=""background: linear-gradient(135deg, #28a745 0%, #20c997 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;"">
+        <h1 style=""color: white; margin: 0;"">✅ Request Approved</h1>
+    </div>
+    
+    <div style=""background-color: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;"">
+        <p style=""font-size: 16px;"">Dear <strong>{data.EmployeeName}</strong>,</p>
+        
+        <p style=""font-size: 16px;"">Your <strong>{data.RequestType}</strong> request (ID: {data.RequestId}) has been <strong style=""color: #28a745;"">approved</strong>.</p>
+        {dateInfo}
+        {commentSection}
+        <p style=""font-size: 14px; color: #666;""><strong>Approved by:</strong> {data.ApproverName}</p>
+        
+        <p style=""font-size: 16px; margin-top: 30px;"">If you have any questions, please don't hesitate to reach out to your HR representative.</p>
+        
+        <p style=""font-size: 16px;"">Best regards,<br><strong>HR Team</strong></p>
+    </div>
+    
+    <div style=""text-align: center; padding: 20px; font-size: 12px; color: #888;"">
+        <p>This is an automated message. Please do not reply to this email.</p>
+    </div>
+</body>
+</html>";
+    }
+
+    public string GenerateRequestRejectionEmail(RequestNotificationEmailData data)
+    {
+        var dateInfo = "";
+        if (!string.IsNullOrEmpty(data.StartDate) && !string.IsNullOrEmpty(data.EndDate))
+        {
+            dateInfo = $@"
+        <p style=""font-size: 14px; color: #666;""><strong>Date Range:</strong> {data.StartDate} to {data.EndDate}</p>";
+            if (data.Duration.HasValue)
+            {
+                dateInfo += $@"
+        <p style=""font-size: 14px; color: #666;""><strong>Duration:</strong> {data.Duration} day{(data.Duration.Value != 1 ? "s" : "")}</p>";
+            }
+        }
+
+        var rejectionReasonSection = !string.IsNullOrWhiteSpace(data.RejectionReason)
+            ? $@"
+        <div style=""background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 8px; margin: 20px 0;"">
+            <p style=""font-size: 14px; color: #721c24; margin: 0;""><strong>Rejection Reason:</strong></p>
+            <p style=""font-size: 14px; color: #721c24; margin: 5px 0 0 0;"">{data.RejectionReason}</p>
+        </div>"
+            : "";
+
+        return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+</head>
+<body style=""font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;"">
+    <div style=""background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;"">
+        <h1 style=""color: white; margin: 0;"">❌ Request Rejected</h1>
+    </div>
+    
+    <div style=""background-color: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;"">
+        <p style=""font-size: 16px;"">Dear <strong>{data.EmployeeName}</strong>,</p>
+        
+        <p style=""font-size: 16px;"">We regret to inform you that your <strong>{data.RequestType}</strong> request (ID: {data.RequestId}) has been <strong style=""color: #dc3545;"">rejected</strong>.</p>
+        {dateInfo}
+        {rejectionReasonSection}
+        <p style=""font-size: 14px; color: #666;""><strong>Rejected by:</strong> {data.ApproverName}</p>
+        
+        <p style=""font-size: 16px; margin-top: 30px;"">If you have any questions or would like to discuss this decision, please don't hesitate to reach out to your HR representative or manager.</p>
         
         <p style=""font-size: 16px;"">Best regards,<br><strong>HR Team</strong></p>
     </div>
