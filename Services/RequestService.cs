@@ -48,13 +48,15 @@ public class RequestService : IRequestService
         int page = 1,
         int limit = 20,
         long? managerId = null,
-        bool filterByManagerReports = false)
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false)
     {
         var requests = await _requestRepository.GetRequestsAsync(
-            employeeId, status, category, dateFrom, dateTo, page, limit, managerId, filterByManagerReports);
+            employeeId, status, category, dateFrom, dateTo, page, limit, managerId, filterByManagerReports, approverId, filterByApprover);
 
         var totalCount = await _requestRepository.GetRequestsCountAsync(
-            employeeId, status, category, dateFrom, dateTo, managerId, filterByManagerReports);
+            employeeId, status, category, dateFrom, dateTo, managerId, filterByManagerReports, approverId, filterByApprover);
 
         var requestDtos = new List<RequestDto>();
         foreach (var request in requests)

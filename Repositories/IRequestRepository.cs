@@ -13,7 +13,9 @@ public interface IRequestRepository
         int page = 1,
         int limit = 20,
         long? managerId = null,
-        bool filterByManagerReports = false);
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false);
 
     Task<int> GetRequestsCountAsync(
         long? employeeId = null,
@@ -22,7 +24,9 @@ public interface IRequestRepository
         DateTime? dateFrom = null,
         DateTime? dateTo = null,
         long? managerId = null,
-        bool filterByManagerReports = false);
+        bool filterByManagerReports = false,
+        long? approverId = null,
+        bool filterByApprover = false);
 
     Task<List<long>> GetDirectReportEmployeeIdsAsync(long managerId);
 

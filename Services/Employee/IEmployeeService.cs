@@ -63,5 +63,15 @@ public interface IEmployeeService
     /// Gets all employees who are HR personnel
     /// </summary>
     Task<IEnumerable<ManagerOrHrDto>> GetHrPersonnelAsync(string? search = null);
+
+    /// <summary>
+    /// Checks if an employee is HR personnel or admin
+    /// </summary>
+    Task<bool> IsHrOrAdminAsync(long employeeId);
+
+    /// <summary>
+    /// Checks if an employee is an admin
+    /// </summary>
+    Task<bool> IsAdminAsync(long employeeId);
 }
 

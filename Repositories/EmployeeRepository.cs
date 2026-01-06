@@ -77,6 +77,8 @@ public class EmployeeRepository : IEmployeeRepository
             .Include(e => e.JobLevel)
             .Include(e => e.EmploymentType)
             .Include(e => e.TimeType)
+            .Include(e => e.Manager)
+            .Include(e => e.Hr)
             .AsNoTracking();
 
         // Search term filter (OR logic: matches ID, FullName, or Email)

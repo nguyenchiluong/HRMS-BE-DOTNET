@@ -35,3 +35,4 @@ public class TimeTypesController : ControllerBase
 
 public record TimeTypeDto(long Id, string Name);
 
+

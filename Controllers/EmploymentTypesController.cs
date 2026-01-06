@@ -35,3 +35,4 @@ public class EmploymentTypesController : ControllerBase
 
 public record EmploymentTypeDto(long Id, string Name);
 
+

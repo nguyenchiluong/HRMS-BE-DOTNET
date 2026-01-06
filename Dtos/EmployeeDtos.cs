@@ -209,7 +209,13 @@ public record FilteredEmployeeDto(
     string? Department,
     string Status,
     string? EmploymentType,
-    string? TimeType
+    string? TimeType,
+    long? ManagerId,
+    string? ManagerName,
+    string? ManagerEmail,
+    long? HrId,
+    string? HrName,
+    string? HrEmail
 );
 
 /// <summary>

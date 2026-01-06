@@ -222,7 +222,13 @@ public class EmployeeService : IEmployeeService
             Department: e.Department?.Name,
             Status: MapStatusToUserFriendly(e.Status),
             EmploymentType: e.EmploymentType?.Name,
-            TimeType: e.TimeType?.Name
+            TimeType: e.TimeType?.Name,
+            ManagerId: e.ManagerId,
+            ManagerName: e.Manager?.FullName,
+            ManagerEmail: e.Manager?.Email,
+            HrId: e.HrId,
+            HrName: e.Hr?.FullName,
+            HrEmail: e.Hr?.Email
         )).ToList();
 
         var totalPages = (int)Math.Ceiling((double)totalCount / pageSize);
@@ -638,6 +644,50 @@ public class EmployeeService : IEmployeeService
             TimeType: e.TimeType?.Name,
             TimeTypeId: e.TimeTypeId
         ));
+    }
+
+    public async Task<bool> IsHrOrAdminAsync(long employeeId)
+    {
+        var employee = await _db.Employees
+            .Include(e => e.Position)
+            .Include(e => e.Department)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == employeeId);
+
+        if (employee == null || employee.Status != "ACTIVE")
+            return false;
+
+        // Check if employee is in HR department (Department ID 6 = "Human Resources")
+        if (employee.DepartmentId == 6)
+            return true;
+
+        // Check if employee has HR-related position
+        if (employee.Position != null && employee.Position.Title.Contains("HR"))
+            return true;
+
+        // Check if employee has admin role (Position ID 9 = "HR Specialist" which has admin role)
+        if (employee.PositionId == 9)
+            return true;
+
+        return false;
+    }
+
+    public async Task<bool> IsAdminAsync(long employeeId)
+    {
+        var employee = await _db.Employees
+            .Include(e => e.Position)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == employeeId);
+
+        if (employee == null || employee.Status != "ACTIVE")
+            return false;
+
+        // Check if employee has admin role (Position ID 9 = "HR Specialist" which has admin role)
+        // This is the only position that has admin role in the system
+        if (employee.PositionId == 9)
+            return true;
+
+        return false;
     }
 
     #endregion

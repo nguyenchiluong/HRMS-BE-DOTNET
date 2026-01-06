@@ -2,6 +2,7 @@ using EmployeeApi.Dtos;
 using EmployeeApi.Extensions;
 using EmployeeApi.Repositories;
 using EmployeeApi.Services;
+using EmployeeApi.Services.Employee;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,17 +16,20 @@ public class RequestsController : ControllerBase
     private readonly IRequestService _requestService;
     private readonly IUserContextService _userContextService;
     private readonly IRequestRepository _requestRepository;
+    private readonly IEmployeeService _employeeService;
     private readonly ILogger<RequestsController> _logger;
 
     public RequestsController(
         IRequestService requestService,
         IUserContextService userContextService,
         IRequestRepository requestRepository,
+        IEmployeeService employeeService,
         ILogger<RequestsController> logger)
     {
         _requestService = requestService;
         _userContextService = userContextService;
         _requestRepository = requestRepository;
+        _employeeService = employeeService;
         _logger = logger;
     }
 
@@ -49,8 +53,8 @@ public class RequestsController : ControllerBase
             var userRole = _userContextService.GetRoleFromClaims(User);
 
             // Check if user is a manager/admin by role OR by having direct reports in database
-            var isManagerOrAdminByRole = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
-                                      || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
+            var isManagerOrAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
+                                      || userRole.Equals("MANAGER", StringComparison.OrdinalIgnoreCase);
 
             // Also check if user has direct reports in the database (even if role claim is wrong)
             var directReportIds = await _requestRepository.GetDirectReportEmployeeIdsAsync(currentEmployeeId);
@@ -84,18 +88,43 @@ public class RequestsController : ControllerBase
                 }
             }
 
+            // Check if user is admin for profile requests
+            // Only admins can view profile change requests, and they only see requests assigned to them as approver
+            bool filterByApprover = false;
+            long? approverId = null;
+
+            if (!string.IsNullOrEmpty(categoryFilter) && categoryFilter == "profile")
+            {
+                // Check if user is admin (only admins can view profile requests)
+                var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
+                var isAdminInDb = await _employeeService.IsAdminAsync(currentEmployeeId);
+                var isAdmin = isAdminByRole || isAdminInDb;
+
+                if (!isAdmin)
+                {
+                    return StatusCode(403, new { error = "Forbidden", message = "Only admins can view profile change requests" });
+                }
+
+                // Admin can only see profile requests where they are assigned as approver
+                filterByApprover = true;
+                approverId = currentEmployeeId;
+                employee_id = null; // Don't filter by employee_id when filtering by approver
+            }
+
             // Regular employees see only their own requests
-            // When filterByManagerReports is true, set filterEmployeeId to null so manager filtering can work
-            long? filterEmployeeId = filterByManagerReports
+            // When filterByManagerReports or filterByApprover is true, set filterEmployeeId to null so filtering can work
+            long? filterEmployeeId = (filterByManagerReports || filterByApprover)
                 ? null
                 : (isManagerOrAdmin ? employee_id : currentEmployeeId);
 
             // Log for debugging
             _logger.LogInformation(
-                "GetRequests - ManagerId: {ManagerId}, EmployeeId: {EmployeeId}, Role: {Role}, IsManagerByRole: {IsManagerByRole}, HasDirectReports: {HasDirectReports}, DirectReportCount: {DirectReportCount}, IsManager: {IsManager}, Category: {Category}, FilterByManagerReports: {FilterByManagerReports}, FilterEmployeeId: {FilterEmployeeId}",
-                managerId, currentEmployeeId, userRole, isManagerOrAdminByRole, hasDirectReports, directReportIds.Count, isManagerOrAdmin,
+                "GetRequests - ManagerId: {ManagerId}, EmployeeId: {EmployeeId}, Role: {Role}, Category: {Category}, FilterByManagerReports: {FilterByManagerReports}, ApproverId: {ApproverId}, FilterByApprover: {FilterByApprover}, FilterEmployeeId: {FilterEmployeeId}",
+                managerId, currentEmployeeId, userRole,
                 categoryFilter ?? "null",
                 filterByManagerReports,
+                approverId?.ToString() ?? "null",
+                filterByApprover,
                 filterEmployeeId);
 
             var result = await _requestService.GetRequestsAsync(
@@ -107,7 +136,9 @@ public class RequestsController : ControllerBase
                 page,
                 limit,
                 managerId,
-                filterByManagerReports);
+                filterByManagerReports,
+                approverId,
+                filterByApprover);
 
             // Log result count for debugging
             _logger.LogInformation(
@@ -271,7 +302,7 @@ public class RequestsController : ControllerBase
     }
 
     /// <summary>
-    /// Approve request (Manager/Admin only)
+    /// Approve request (Manager/Admin only, but only Admin for profile requests)
     /// </summary>
     [HttpPost("{id}/approve")]
     public async Task<ActionResult<object>> ApproveRequest(int id, [FromBody] ApprovalDto? dto)
@@ -280,19 +311,46 @@ public class RequestsController : ControllerBase
         {
             // Get current user's employee ID from JWT token and verify role
             var userRole = _userContextService.GetRoleFromClaims(User);
-            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
-                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-
-            if (!isManagerOrAdmin)
-            {
-                return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can approve requests" });
-            }
-
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
-            var request = await _requestService.ApproveRequestAsync(id, currentEmployeeId, dto?.Comment);
+            // First, get the request from repository to check its category
+            var request = await _requestRepository.GetRequestByIdAsync(id);
+            if (request == null)
+            {
+                return NotFound(new { error = "Not Found", message = "Request not found" });
+            }
 
-            return Ok(new { message = "Request approved successfully", data = request });
+            // Check if this is a profile request by checking the request type category
+            var isProfileRequest = request.RequestTypeLookup?.Category?.ToLower() == "profile" ||
+                (request.RequestTypeLookup?.Code != null && request.RequestTypeLookup.Code.Contains("PROFILE", StringComparison.OrdinalIgnoreCase));
+
+            // For profile requests, only admins can approve
+            if (isProfileRequest)
+            {
+                var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
+                var isAdminInDb = await _employeeService.IsAdminAsync(currentEmployeeId);
+                var isAdmin = isAdminByRole || isAdminInDb;
+
+                if (!isAdmin)
+                {
+                    return StatusCode(403, new { error = "Forbidden", message = "Only admins can approve profile change requests" });
+                }
+            }
+            else
+            {
+                // For other requests, managers or admins can approve
+                var isManagerOrAdmin = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
+                                    || userRole.Equals("MANAGER", StringComparison.OrdinalIgnoreCase);
+
+                if (!isManagerOrAdmin)
+                {
+                    return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can approve requests" });
+                }
+            }
+
+            var approvedRequest = await _requestService.ApproveRequestAsync(id, currentEmployeeId, dto?.Comment);
+
+            return Ok(new { message = "Request approved successfully", data = approvedRequest });
         }
         catch (InvalidOperationException ex)
         {
@@ -306,7 +364,7 @@ public class RequestsController : ControllerBase
     }
 
     /// <summary>
-    /// Reject request (Manager/Admin only)
+    /// Reject request (Manager/Admin only, but only Admin for profile requests)
     /// </summary>
     [HttpPost("{id}/reject")]
     public async Task<ActionResult<object>> RejectRequest(int id, [FromBody] RejectionDto dto)
@@ -320,19 +378,46 @@ public class RequestsController : ControllerBase
 
             // Get current user's employee ID from JWT token and verify role
             var userRole = _userContextService.GetRoleFromClaims(User);
-            var isManagerOrAdmin = userRole.Equals("Admin", StringComparison.OrdinalIgnoreCase)
-                                || userRole.Equals("Manager", StringComparison.OrdinalIgnoreCase);
-
-            if (!isManagerOrAdmin)
-            {
-                return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can reject requests" });
-            }
-
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
-            var request = await _requestService.RejectRequestAsync(id, currentEmployeeId, dto.Reason);
+            // First, get the request from repository to check its category
+            var request = await _requestRepository.GetRequestByIdAsync(id);
+            if (request == null)
+            {
+                return NotFound(new { error = "Not Found", message = "Request not found" });
+            }
 
-            return Ok(new { message = "Request rejected successfully", data = request });
+            // Check if this is a profile request by checking the request type category
+            var isProfileRequest = request.RequestTypeLookup?.Category?.ToLower() == "profile" ||
+                (request.RequestTypeLookup?.Code != null && request.RequestTypeLookup.Code.Contains("PROFILE", StringComparison.OrdinalIgnoreCase));
+
+            // For profile requests, only admins can reject
+            if (isProfileRequest)
+            {
+                var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
+                var isAdminInDb = await _employeeService.IsAdminAsync(currentEmployeeId);
+                var isAdmin = isAdminByRole || isAdminInDb;
+
+                if (!isAdmin)
+                {
+                    return StatusCode(403, new { error = "Forbidden", message = "Only admins can reject profile change requests" });
+                }
+            }
+            else
+            {
+                // For other requests, managers or admins can reject
+                var isManagerOrAdmin = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)
+                                    || userRole.Equals("MANAGER", StringComparison.OrdinalIgnoreCase);
+
+                if (!isManagerOrAdmin)
+                {
+                    return StatusCode(403, new { error = "Forbidden", message = "Only managers or admins can reject requests" });
+                }
+            }
+
+            var rejectedRequest = await _requestService.RejectRequestAsync(id, currentEmployeeId, dto.Reason);
+
+            return Ok(new { message = "Request rejected successfully", data = rejectedRequest });
         }
         catch (InvalidOperationException ex)
         {
