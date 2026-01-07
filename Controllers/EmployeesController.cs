@@ -14,17 +14,20 @@ public class EmployeesController : ControllerBase
     private readonly IEmployeeWriteService _writeService;
     private readonly IUserContextService _userContextService;
     private readonly EmployeeAuthorizationService _authorizationService;
+    private readonly IDashboardService _dashboardService;
 
     public EmployeesController(
         IEmployeeReadService readService,
         IEmployeeWriteService writeService,
         IUserContextService userContextService,
-        EmployeeAuthorizationService authorizationService)
+        EmployeeAuthorizationService authorizationService,
+        IDashboardService dashboardService)
     {
         _readService = readService;
         _writeService = writeService;
         _userContextService = userContextService;
         _authorizationService = authorizationService;
+        _dashboardService = dashboardService;
     }
 
     [HttpGet]
@@ -179,6 +182,43 @@ public class EmployeesController : ControllerBase
             }
 
             return Ok(dto);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Gets dashboard statistics for the current authenticated employee
+    /// </summary>
+    /// <remarks>
+    /// Returns aggregated statistics including:
+    /// - bonusBalance: Current bonus credit points balance (placeholder, actual value from Spring Boot)
+    /// - pendingTimesheets: Count of timesheets with status "PENDING"
+    /// - totalHoursThisMonth: Sum of approved timesheet hours for current month
+    /// - leaveBalance: Remaining leave days for the year
+    /// </remarks>
+    /// <response code="200">Successfully retrieved dashboard statistics</response>
+    /// <response code="401">Employee ID not found in JWT token</response>
+    /// <response code="500">Internal server error</response>
+    [HttpGet("me/dashboard-stats")]
+    [ProducesResponseType(typeof(EmployeeDashboardStatsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<EmployeeDashboardStatsDto>> GetCurrentEmployeeDashboardStats()
+    {
+        try
+        {
+            var employeeId = User.TryGetEmployeeId();
+
+            if (employeeId == null)
+            {
+                return Unauthorized(new { message = "Employee ID not found in token" });
+            }
+
+            var stats = await _dashboardService.GetEmployeeDashboardStatsAsync(employeeId.Value);
+            return Ok(stats);
         }
         catch (Exception ex)
         {
