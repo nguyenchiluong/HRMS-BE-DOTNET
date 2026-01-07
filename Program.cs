@@ -88,7 +88,11 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
-builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+// Employee services - split into read/write for better organization
+builder.Services.AddScoped<EmployeeValidationService>();
+builder.Services.AddScoped<EmployeeAuthorizationService>();
+builder.Services.AddScoped<IEmployeeReadService, EmployeeReadService>();
+builder.Services.AddScoped<IEmployeeWriteService, EmployeeWriteService>();
 builder.Services.AddScoped<IEducationRepository, EducationRepository>();
 builder.Services.AddScoped<IEducationService, EducationService>();
 builder.Services.AddScoped<IBankAccountRepository, BankAccountRepository>();

@@ -264,3 +264,19 @@ public record ManagerOrHrDto(
     string? TimeType,
     long? TimeTypeId
 );
+
+/// <summary>
+/// DTO for reassigning supervisors (manager and HR)
+/// </summary>
+public class ReassignSupervisorsDto
+{
+    /// <summary>
+    /// Manager ID. null means remove manager assignment.
+    /// </summary>
+    public long? ManagerId { get; set; }
+
+    /// <summary>
+    /// HR ID. null means remove HR assignment.
+    /// </summary>
+    public long? HrId { get; set; }
+}

@@ -16,20 +16,20 @@ public class RequestsController : ControllerBase
     private readonly IRequestService _requestService;
     private readonly IUserContextService _userContextService;
     private readonly IRequestRepository _requestRepository;
-    private readonly IEmployeeService _employeeService;
+    private readonly IEmployeeReadService _employeeReadService;
     private readonly ILogger<RequestsController> _logger;
 
     public RequestsController(
         IRequestService requestService,
         IUserContextService userContextService,
         IRequestRepository requestRepository,
-        IEmployeeService employeeService,
+        IEmployeeReadService employeeReadService,
         ILogger<RequestsController> logger)
     {
         _requestService = requestService;
         _userContextService = userContextService;
         _requestRepository = requestRepository;
-        _employeeService = employeeService;
+        _employeeReadService = employeeReadService;
         _logger = logger;
     }
 
@@ -97,7 +97,7 @@ public class RequestsController : ControllerBase
             {
                 // Check if user is admin (only admins can view profile requests)
                 var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
-                var isAdminInDb = await _employeeService.IsAdminAsync(currentEmployeeId);
+                var isAdminInDb = await _employeeReadService.IsAdminAsync(currentEmployeeId);
                 var isAdmin = isAdminByRole || isAdminInDb;
 
                 if (!isAdmin)
@@ -328,7 +328,7 @@ public class RequestsController : ControllerBase
             if (isProfileRequest)
             {
                 var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
-                var isAdminInDb = await _employeeService.IsAdminAsync(currentEmployeeId);
+                var isAdminInDb = await _employeeReadService.IsAdminAsync(currentEmployeeId);
                 var isAdmin = isAdminByRole || isAdminInDb;
 
                 if (!isAdmin)
@@ -395,7 +395,7 @@ public class RequestsController : ControllerBase
             if (isProfileRequest)
             {
                 var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
-                var isAdminInDb = await _employeeService.IsAdminAsync(currentEmployeeId);
+                var isAdminInDb = await _employeeReadService.IsAdminAsync(currentEmployeeId);
                 var isAdmin = isAdminByRole || isAdminInDb;
 
                 if (!isAdmin)
