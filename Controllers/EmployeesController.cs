@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using EmployeeApi.Dtos;
 using EmployeeApi.Services.Employee;
+using EmployeeApi.Services;
 using EmployeeApi.Extensions;
 
 namespace EmployeeApi.Controllers;
@@ -9,8 +10,22 @@ namespace EmployeeApi.Controllers;
 [Route("api/[controller]")]
 public class EmployeesController : ControllerBase
 {
-    private readonly IEmployeeService _service;
-    public EmployeesController(IEmployeeService service) => _service = service;
+    private readonly IEmployeeReadService _readService;
+    private readonly IEmployeeWriteService _writeService;
+    private readonly IUserContextService _userContextService;
+    private readonly EmployeeAuthorizationService _authorizationService;
+
+    public EmployeesController(
+        IEmployeeReadService readService,
+        IEmployeeWriteService writeService,
+        IUserContextService userContextService,
+        EmployeeAuthorizationService authorizationService)
+    {
+        _readService = readService;
+        _writeService = writeService;
+        _userContextService = userContextService;
+        _authorizationService = authorizationService;
+    }
 
     [HttpGet]
     public async Task<ActionResult<EmployeePaginatedResponse<FilteredEmployeeDto>>> GetAll(
@@ -34,7 +49,7 @@ public class EmployeesController : ControllerBase
             List<string>? employmentTypes = ParseFilterArray(employmentType);
             List<string>? timeTypes = ParseFilterArray(timeType);
 
-            var result = await _service.GetFilteredAsync(
+            var result = await _readService.GetFilteredAsync(
                 searchTerm,
                 statuses,
                 departments,
@@ -58,7 +73,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var employees = await _service.GetByManagerIdAsync(managerId);
+            var employees = await _readService.GetByManagerIdAsync(managerId);
             return Ok(employees);
         }
         catch (Exception ex)
@@ -75,7 +90,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var managers = await _service.GetManagersAsync(search);
+            var managers = await _readService.GetManagersAsync(search);
             return Ok(managers);
         }
         catch (Exception ex)
@@ -92,7 +107,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var hrPersonnel = await _service.GetHrPersonnelAsync(search);
+            var hrPersonnel = await _readService.GetHrPersonnelAsync(search);
             return Ok(hrPersonnel);
         }
         catch (Exception ex)
@@ -125,7 +140,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var stats = await _service.GetStatsAsync();
+            var stats = await _readService.GetStatsAsync();
             return Ok(stats);
         }
         catch (Exception ex)
@@ -137,7 +152,7 @@ public class EmployeesController : ControllerBase
     [HttpGet("{id:long}")]
     public async Task<ActionResult<EmployeeDto>> GetOne(long id)
     {
-        var dto = await _service.GetOneAsync(id);
+        var dto = await _readService.GetOneAsync(id);
         return dto is null ? NotFound() : Ok(dto);
     }
 
@@ -156,7 +171,7 @@ public class EmployeesController : ControllerBase
                 return Unauthorized(new { message = "Employee ID not found in token" });
             }
 
-            var dto = await _service.GetOneAsync(employeeId.Value);
+            var dto = await _readService.GetOneAsync(employeeId.Value);
 
             if (dto == null)
             {
@@ -213,7 +228,7 @@ public class EmployeesController : ControllerBase
                 return Unauthorized(new { message = "Employee ID not found in token" });
             }
 
-            var dto = await _service.UpdateProfileAsync(employeeId.Value, input);
+            var dto = await _writeService.UpdateProfileAsync(employeeId.Value, input);
             return Ok(dto);
         }
         catch (KeyNotFoundException)
@@ -238,7 +253,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var dto = await _service.GetByOnboardingTokenAsync(token);
+            var dto = await _readService.GetByOnboardingTokenAsync(token);
             return Ok(dto);
         }
         catch (ArgumentException ex)
@@ -261,7 +276,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var dto = await _service.SaveOnboardingProgressAsync(token, input);
+            var dto = await _writeService.SaveOnboardingProgressAsync(token, input);
             return Ok(dto);
         }
         catch (ArgumentException ex)
@@ -283,7 +298,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var dto = await _service.CreateAsync(input);
+            var dto = await _writeService.CreateAsync(input);
             return CreatedAtAction(nameof(GetOne), new { id = dto.Id }, dto);
         }
         catch (Exception ex)
@@ -300,7 +315,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var dto = await _service.CreateInitialProfileAsync(input);
+            var dto = await _writeService.CreateInitialProfileAsync(input);
             return CreatedAtAction(nameof(GetOne), new { id = dto.Id }, dto);
         }
         catch (ArgumentException ex)
@@ -321,7 +336,7 @@ public class EmployeesController : ControllerBase
     {
         try
         {
-            var dto = await _service.CompleteOnboardingAsync(id, input);
+            var dto = await _writeService.CompleteOnboardingAsync(id, input);
             return Ok(dto);
         }
         catch (KeyNotFoundException)
@@ -331,6 +346,76 @@ public class EmployeesController : ControllerBase
         catch (InvalidOperationException ex)
         {
             return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Reassigns supervisors (manager and HR) for an employee
+    /// Only the HR (admin) who manages this employee can reassign supervisors
+    /// </summary>
+    /// <param name="employeeId">The ID of the employee to update</param>
+    /// <param name="input">The supervisor assignment data (both managerId and hrId are required, null means remove assignment)</param>
+    /// <returns>Success message</returns>
+    /// <response code="200">Supervisors updated successfully</response>
+    /// <response code="400">Validation failed</response>
+    /// <response code="403">Forbidden - Only the HR manager of this employee can reassign supervisors</response>
+    /// <response code="404">Employee not found</response>
+    [HttpPut("{employeeId:long}/supervisors")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> ReassignSupervisors(long employeeId, [FromBody] ReassignSupervisorsDto input)
+    {
+        try
+        {
+            // Get current user's employee ID
+            var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
+
+            // Check authorization
+            var authResult = await _authorizationService.CanReassignSupervisorsAsync(currentEmployeeId, employeeId);
+            if (!authResult.IsAuthorized)
+            {
+                // Check if it's a "not found" error (404) or authorization error (403)
+                if (authResult.ErrorMessage == "Employee not found")
+                {
+                    return NotFound(new { message = authResult.ErrorMessage });
+                }
+                return StatusCode(403, new { message = authResult.ErrorMessage });
+            }
+
+            await _writeService.ReassignSupervisorsAsync(employeeId, input);
+            return Ok(new { message = "Supervisors updated successfully" });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { message = ex.Message });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+        catch (ArgumentException ex)
+        {
+            // Parse validation errors from exception message
+            var errorMessage = ex.Message;
+            var errors = new List<string>();
+
+            if (errorMessage.Contains("Validation failed:"))
+            {
+                var errorPart = errorMessage.Substring(errorMessage.IndexOf(":") + 1).Trim();
+                errors = errorPart.Split(',').Select(e => e.Trim()).ToList();
+            }
+            else
+            {
+                errors.Add(errorMessage);
+            }
+
+            return BadRequest(new { message = "Validation failed", errors });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
         }
     }
 }
