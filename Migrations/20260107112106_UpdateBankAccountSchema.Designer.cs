@@ -3,6 +3,7 @@ using System;
 using EmployeeApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace EmployeeApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260107112106_UpdateBankAccountSchema")]
+    partial class UpdateBankAccountSchema
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -111,6 +114,9 @@ namespace EmployeeApi.Migrations
 
                     b.HasIndex("EmployeeId");
 
+                    b.HasIndex("AccountNumber", "BankName")
+                        .IsUnique();
+
                     b.ToTable("bank_account", "dotnet");
                 });
 
@@ -162,10 +168,6 @@ namespace EmployeeApi.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("emp_id");
 
-                    b.Property<int?>("EndYear")
-                        .HasColumnType("integer")
-                        .HasColumnName("end_year");
-
                     b.Property<string>("FieldOfStudy")
                         .HasColumnType("text")
                         .HasColumnName("field_of_study");
@@ -173,14 +175,6 @@ namespace EmployeeApi.Migrations
                     b.Property<double?>("Gpa")
                         .HasColumnType("double precision")
                         .HasColumnName("gpa");
-
-                    b.Property<string>("Institution")
-                        .HasColumnType("text")
-                        .HasColumnName("institution");
-
-                    b.Property<int?>("StartYear")
-                        .HasColumnType("integer")
-                        .HasColumnName("start_year");
 
                     b.HasKey("Id");
 

@@ -98,6 +98,10 @@ public class EmployeeWriteService : IEmployeeWriteService
         await _repo.AddAsync(entity);
         await _repo.SaveChangesAsync();
 
+        // Save bank account if provided
+        await SaveBankAccountAsync(entity.Id, input.BankAccount, replaceExisting: false);
+        await _db.SaveChangesAsync(); // Save bank account changes
+
         var generatedPassword = await RegisterAuthAccountAsync(entity);
         await PublishOnboardingEmailEvent(entity, generatedPassword);
 
@@ -106,7 +110,8 @@ public class EmployeeWriteService : IEmployeeWriteService
 
     public async Task<EmployeeDto> CompleteOnboardingAsync(long employeeId, OnboardDto input)
     {
-        var employee = await _repo.GetByIdAsync(employeeId)
+        // Fetch employee with tracking so changes are saved
+        var employee = await _db.Employees.FindAsync(employeeId)
             ?? throw new KeyNotFoundException("Employee not found");
 
         if (employee.Status == EmployeeStatus.Active.ToApiString())
@@ -115,10 +120,14 @@ public class EmployeeWriteService : IEmployeeWriteService
         EmployeeMapper.UpdateFromOnboardDto(employee, input);
         employee.Status = EmployeeStatus.Active.ToApiString();
 
-        _repo.Update(employee);
+        // Save education records
         await SaveEducationRecordsAsync(employeeId, input.Education, replaceExisting: false);
+        
+        // Save bank account
         await SaveBankAccountAsync(employeeId, input.BankAccount, replaceExisting: false);
-        await _repo.SaveChangesAsync();
+        
+        // Save all changes together (employee, education, bank account)
+        await _db.SaveChangesAsync();
 
         return EmployeeMapper.ToDto(employee);
     }
@@ -129,7 +138,8 @@ public class EmployeeWriteService : IEmployeeWriteService
         if (!result.IsValid)
             throw new ArgumentException(result.ErrorMessage);
 
-        var employee = await _repo.GetByIdAsync(result.EmployeeId)
+        // Fetch employee with tracking so changes are saved
+        var employee = await _db.Employees.FindAsync(result.EmployeeId)
             ?? throw new KeyNotFoundException("Employee not found");
 
         if (employee.Status == EmployeeStatus.Active.ToApiString())
@@ -137,10 +147,14 @@ public class EmployeeWriteService : IEmployeeWriteService
 
         EmployeeMapper.UpdateFromOnboardDto(employee, input);
 
-        _repo.Update(employee);
+        // Save education records
         await SaveEducationRecordsAsync(result.EmployeeId, input.Education, replaceExisting: true);
+        
+        // Save bank account
         await SaveBankAccountAsync(result.EmployeeId, input.BankAccount, replaceExisting: true);
-        await _repo.SaveChangesAsync();
+        
+        // Save all changes together (employee, education, bank account)
+        await _db.SaveChangesAsync();
 
         return EmployeeMapper.ToDto(employee);
     }
@@ -315,7 +329,10 @@ public class EmployeeWriteService : IEmployeeWriteService
                 Degree = edu.Degree,
                 FieldOfStudy = edu.FieldOfStudy,
                 Gpa = edu.Gpa,
-                Country = edu.Country
+                Country = edu.Country,
+                Institution = edu.Institution,
+                StartYear = edu.StartYear,
+                EndYear = edu.EndYear
             };
             await _db.Educations.AddAsync(education);
         }
@@ -334,12 +351,19 @@ public class EmployeeWriteService : IEmployeeWriteService
             string.IsNullOrWhiteSpace(bankAccountDto.AccountNumber))
             return;
 
+        // Normalize SwiftCode to uppercase if provided
+        var swiftCode = !string.IsNullOrWhiteSpace(bankAccountDto.SwiftCode) 
+            ? bankAccountDto.SwiftCode.Trim().ToUpperInvariant() 
+            : null;
+
         var bankAccount = new BankAccount
         {
             EmployeeId = employeeId,
             BankName = bankAccountDto.BankName.Trim(),
             AccountNumber = bankAccountDto.AccountNumber.Trim(),
-            AccountName = bankAccountDto.AccountName?.Trim()
+            AccountName = bankAccountDto.AccountName?.Trim() ?? string.Empty,
+            SwiftCode = swiftCode,
+            BranchCode = bankAccountDto.BranchCode?.Trim()
         };
         await _db.BankAccounts.AddAsync(bankAccount);
     }

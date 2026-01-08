@@ -19,7 +19,7 @@ public class BankAccountController : ControllerBase
     }
 
     /// <summary>
-    /// Gets all bank accounts for the current authenticated user
+    /// Gets the current employee's bank account (single account)
     /// </summary>
     /// <remarks>
     /// Sample request:
@@ -27,11 +27,11 @@ public class BankAccountController : ControllerBase
     ///     GET /api/bankaccount/me
     ///     Authorization: Bearer {your-jwt-token}
     ///
-    /// Returns a list of all bank accounts belonging to the authenticated employee.
+    /// Returns the first bank account for the authenticated employee as an array.
+    /// Returns empty array if no account exists.
     /// </remarks>
-    /// <response code="200">Successfully retrieved bank accounts</response>
+    /// <response code="200">Successfully retrieved bank account (as array)</response>
     /// <response code="401">Employee ID not found in JWT token</response>
-    /// <response code="404">Employee not found</response>
     /// <response code="500">Internal server error occurred</response>
     [HttpGet("me")]
     public async Task<ActionResult<IReadOnlyList<BankAccountRecordDto>>> GetMyBankAccounts()
@@ -39,14 +39,21 @@ public class BankAccountController : ControllerBase
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
             }
 
-            var bankAccounts = await _bankAccountService.GetAllByEmployeeIdAsync(employeeId.Value);
-            return Ok(bankAccounts);
+            var bankAccount = await _bankAccountService.GetFirstByEmployeeIdAsync(employeeId.Value);
+
+            // Return as array (even if single item) for compatibility. Frontend will use first item.
+            if (bankAccount == null)
+            {
+                return Ok(new List<BankAccountRecordDto>());
+            }
+
+            return Ok(new List<BankAccountRecordDto> { bankAccount });
         }
         catch (KeyNotFoundException ex)
         {
@@ -81,14 +88,14 @@ public class BankAccountController : ControllerBase
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
             }
 
             var bankAccount = await _bankAccountService.GetByKeysAsync(accountNumber, bankName, employeeId.Value);
-            
+
             if (bankAccount == null)
             {
                 return NotFound(new { message = "Bank account not found" });
@@ -132,7 +139,7 @@ public class BankAccountController : ControllerBase
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
@@ -145,8 +152,8 @@ public class BankAccountController : ControllerBase
 
             var bankAccount = await _bankAccountService.CreateAsync(employeeId.Value, dto);
             return CreatedAtAction(
-                nameof(GetMyBankAccount), 
-                new { accountNumber = bankAccount.AccountNumber, bankName = bankAccount.BankName }, 
+                nameof(GetMyBankAccount),
+                new { accountNumber = bankAccount.AccountNumber, bankName = bankAccount.BankName },
                 bankAccount);
         }
         catch (KeyNotFoundException ex)
@@ -164,40 +171,41 @@ public class BankAccountController : ControllerBase
     }
 
     /// <summary>
-    /// Updates an existing bank account for the current authenticated user
+    /// Updates the current employee's bank account
     /// </summary>
     /// <remarks>
     /// Sample request:
     ///
-    ///     PUT /api/bankaccount/me/1234567890/Chase
+    ///     PUT /api/bankaccount/me/1
     ///     Authorization: Bearer {your-jwt-token}
     ///     Content-Type: application/json
     ///     
     ///     {
-    ///       "accountName": "John Michael Doe"
+    ///       "accountNumber": "1234567890",
+    ///       "bankName": "Example Bank",
+    ///       "accountName": "John Doe",
+    ///       "swiftCode": "CHASUS33",
+    ///       "branchCode": "001"
     ///     }
     ///
-    /// Updates the bank account with the specified account number and bank name if it belongs to the authenticated employee.
-    /// Only the fields provided will be updated.
+    /// Updates the bank account with the specified id if it belongs to the authenticated employee.
     /// </remarks>
-    /// <param name="accountNumber">The bank account number to update</param>
-    /// <param name="bankName">The bank name to update</param>
+    /// <param name="id">The bank account id</param>
     /// <param name="dto">The bank account data to update</param>
     /// <response code="200">Successfully updated the bank account</response>
-    /// <response code="400">Invalid input data or trying to change to existing account</response>
+    /// <response code="400">Invalid input data</response>
     /// <response code="401">Employee ID not found in JWT token</response>
     /// <response code="404">Bank account not found or does not belong to the user</response>
     /// <response code="500">Internal server error occurred</response>
-    [HttpPut("me/{accountNumber}/{bankName}")]
+    [HttpPut("me/{id:long}")]
     public async Task<ActionResult<BankAccountRecordDto>> UpdateMyBankAccount(
-        string accountNumber, 
-        string bankName, 
+        long id,
         [FromBody] UpdateBankAccountDto dto)
     {
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
@@ -208,8 +216,8 @@ public class BankAccountController : ControllerBase
                 return BadRequest(ModelState);
             }
 
-            var bankAccount = await _bankAccountService.UpdateAsync(accountNumber, bankName, employeeId.Value, dto);
-            
+            var bankAccount = await _bankAccountService.UpdateByIdAsync(id, employeeId.Value, dto);
+
             if (bankAccount == null)
             {
                 return NotFound(new { message = "Bank account not found" });
@@ -228,36 +236,35 @@ public class BankAccountController : ControllerBase
     }
 
     /// <summary>
-    /// Deletes a bank account for the current authenticated user
+    /// Deletes the current employee's bank account
     /// </summary>
     /// <remarks>
     /// Sample request:
     ///
-    ///     DELETE /api/bankaccount/me/1234567890/Chase
+    ///     DELETE /api/bankaccount/me/1
     ///     Authorization: Bearer {your-jwt-token}
     ///
-    /// Deletes the bank account with the specified account number and bank name if it belongs to the authenticated employee.
+    /// Deletes the bank account with the specified id if it belongs to the authenticated employee.
     /// </remarks>
-    /// <param name="accountNumber">The bank account number to delete</param>
-    /// <param name="bankName">The bank name to delete</param>
+    /// <param name="id">The bank account id to delete</param>
     /// <response code="204">Successfully deleted the bank account</response>
     /// <response code="401">Employee ID not found in JWT token</response>
     /// <response code="404">Bank account not found or does not belong to the user</response>
     /// <response code="500">Internal server error occurred</response>
-    [HttpDelete("me/{accountNumber}/{bankName}")]
-    public async Task<IActionResult> DeleteMyBankAccount(string accountNumber, string bankName)
+    [HttpDelete("me/{id:long}")]
+    public async Task<IActionResult> DeleteMyBankAccount(long id)
     {
         try
         {
             var employeeId = User.TryGetEmployeeId();
-            
+
             if (employeeId == null)
             {
                 return Unauthorized(new { message = "Employee ID not found in token" });
             }
 
-            var deleted = await _bankAccountService.DeleteAsync(accountNumber, bankName, employeeId.Value);
-            
+            var deleted = await _bankAccountService.DeleteByIdAsync(id, employeeId.Value);
+
             if (!deleted)
             {
                 return NotFound(new { message = "Bank account not found" });
@@ -314,7 +321,7 @@ public class BankAccountController : ControllerBase
         try
         {
             var bankAccount = await _bankAccountService.GetByKeysAsync(accountNumber, bankName, 0); // Admin access
-            
+
             if (bankAccount == null)
             {
                 return NotFound(new { message = "Bank account not found" });
@@ -340,7 +347,7 @@ public class BankAccountController : ControllerBase
     [HttpPost("admin/employee/{employeeId:long}")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<BankAccountRecordDto>> CreateEmployeeBankAccount(
-        long employeeId, 
+        long employeeId,
         [FromBody] CreateBankAccountDto dto)
     {
         try
@@ -352,8 +359,8 @@ public class BankAccountController : ControllerBase
 
             var bankAccount = await _bankAccountService.CreateAsync(employeeId, dto);
             return CreatedAtAction(
-                nameof(GetBankAccountByKeys), 
-                new { accountNumber = bankAccount.AccountNumber, bankName = bankAccount.BankName }, 
+                nameof(GetBankAccountByKeys),
+                new { accountNumber = bankAccount.AccountNumber, bankName = bankAccount.BankName },
                 bankAccount);
         }
         catch (KeyNotFoundException ex)
@@ -383,8 +390,8 @@ public class BankAccountController : ControllerBase
     [HttpPut("admin/{accountNumber}/{bankName}")]
     [Authorize(Policy = "AdminOnly")]
     public async Task<ActionResult<BankAccountRecordDto>> UpdateBankAccount(
-        string accountNumber, 
-        string bankName, 
+        string accountNumber,
+        string bankName,
         [FromBody] UpdateBankAccountDto dto)
     {
         try
@@ -395,7 +402,7 @@ public class BankAccountController : ControllerBase
             }
 
             var bankAccount = await _bankAccountService.UpdateAsync(accountNumber, bankName, 0, dto); // Admin access
-            
+
             if (bankAccount == null)
             {
                 return NotFound(new { message = "Bank account not found" });
@@ -428,7 +435,7 @@ public class BankAccountController : ControllerBase
         try
         {
             var deleted = await _bankAccountService.DeleteAsync(accountNumber, bankName, 0); // Admin access
-            
+
             if (!deleted)
             {
                 return NotFound(new { message = "Bank account not found" });
