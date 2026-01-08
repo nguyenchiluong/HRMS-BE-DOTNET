@@ -12,9 +12,10 @@ public interface IEmployeeReadService
     Task<EmployeeDto?> GetOneAsync(long id);
 
     /// <summary>
-    /// Validates onboarding token and returns employee info for the onboarding form
+    /// Validates onboarding token and returns employee info for the onboarding form (including education and bank account)
+    /// Returns OnboardDto so frontend can directly use it to populate and submit the form
     /// </summary>
-    Task<EmployeeDto> GetByOnboardingTokenAsync(string token);
+    Task<OnboardDto> GetByOnboardingTokenAsync(string token);
 
     /// <summary>
     /// Gets filtered and paginated employees for table view

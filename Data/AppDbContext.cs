@@ -157,10 +157,6 @@ public class AppDbContext : DbContext
             .HasIndex(e => e.Email)
             .IsUnique();
 
-        modelBuilder.Entity<BankAccount>()
-            .HasIndex(b => b.AccountNumber)
-            .IsUnique();
-
         // ========================================
         // TimesheetTask Configuration
         // ========================================

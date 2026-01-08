@@ -16,8 +16,17 @@ public class BankAccountRepository : IBankAccountRepository
 
     public async Task<BankAccount?> GetByIdAsync(long id)
     {
-        // BankAccount uses composite key, so this method isn't applicable
-        throw new NotImplementedException("Use GetByCompositeKeyAsync for BankAccount");
+        return await _context.BankAccounts.FindAsync(id);
+    }
+
+    /// <summary>
+    /// Gets a bank account by id and employee ID to ensure it belongs to the employee
+    /// </summary>
+    public async Task<BankAccount?> GetByIdAndEmployeeIdAsync(long id, long employeeId)
+    {
+        return await _context.BankAccounts
+            .Where(b => b.Id == id && b.EmployeeId == employeeId)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<IReadOnlyList<BankAccount>> ListAsync(Expression<Func<BankAccount, bool>>? predicate = null)
@@ -59,6 +68,22 @@ public class BankAccountRepository : IBankAccountRepository
             .OrderBy(b => b.BankName)
             .ThenBy(b => b.AccountNumber)
             .ToListAsync();
+    }
+
+    public async Task<BankAccount?> GetFirstByEmployeeIdAsync(long employeeId)
+    {
+        return await _context.BankAccounts
+            .Where(b => b.EmployeeId == employeeId)
+            .OrderBy(b => b.BankName)
+            .ThenBy(b => b.AccountNumber)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<BankAccount?> GetByBankNameAndEmployeeIdAsync(string bankName, long employeeId)
+    {
+        return await _context.BankAccounts
+            .Where(b => b.BankName == bankName && b.EmployeeId == employeeId)
+            .FirstOrDefaultAsync();
     }
 
     public async Task<BankAccount?> GetByKeysAndEmployeeIdAsync(string accountNumber, string bankName, long employeeId)
