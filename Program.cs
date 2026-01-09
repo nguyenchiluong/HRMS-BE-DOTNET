@@ -109,6 +109,7 @@ builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ITimesheetRepository, TimesheetRepository>();
 builder.Services.AddScoped<ITimesheetService, TimesheetService>();
 builder.Services.AddScoped<IUserContextService, UserContextService>();
+builder.Services.AddScoped<ITeamMembersService, TeamMembersService>();
 
 // Auth Service HttpClient
 builder.Services.AddHttpClient<IAuthService, AuthService>(client =>
