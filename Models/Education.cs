@@ -27,4 +27,13 @@ public class Education
 
   [Column("country")]
   public string? Country { get; set; }
+
+  [Column("institution")]
+  public string? Institution { get; set; }
+
+  [Column("start_year")]
+  public int? StartYear { get; set; }
+
+  [Column("end_year")]
+  public int? EndYear { get; set; }
 }

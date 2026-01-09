@@ -286,10 +286,11 @@ public class EmployeesController : ControllerBase
     }
 
     /// <summary>
-    /// Validates onboarding token and returns employee info for the onboarding form
+    /// Validates onboarding token and returns employee info for the onboarding form (including education and bank account)
+    /// Returns OnboardDto so frontend can directly use it to populate and submit the form
     /// </summary>
     [HttpGet("onboarding-info")]
-    public async Task<ActionResult<EmployeeDto>> GetOnboardingInfo([FromQuery] string token)
+    public async Task<ActionResult<OnboardDto>> GetOnboardingInfo([FromQuery] string token)
     {
         try
         {

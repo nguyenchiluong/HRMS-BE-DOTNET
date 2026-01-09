@@ -20,7 +20,7 @@ public interface IRequestService
 
     Task<RequestDetailsDto?> GetRequestByIdAsync(int id);
 
-    Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId);
+    Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId, string? userRole = null);
 
     Task<RequestDto> UpdateRequestAsync(int id, UpdateRequestDto dto, long requesterEmployeeId);
 

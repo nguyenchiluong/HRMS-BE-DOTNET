@@ -89,26 +89,26 @@ public class RequestsController : ControllerBase
             }
 
             // Check if user is admin for profile requests
-            // Only admins can view profile change requests, and they only see requests assigned to them as approver
+            // Admins can view profile requests where they are assigned as approver
+            // Employees can view their own profile requests
             bool filterByApprover = false;
             long? approverId = null;
 
             if (!string.IsNullOrEmpty(categoryFilter) && categoryFilter == "profile")
             {
-                // Check if user is admin (only admins can view profile requests)
+                // Check if user is admin
                 var isAdminByRole = userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
                 var isAdminInDb = await _employeeReadService.IsAdminAsync(currentEmployeeId);
                 var isAdmin = isAdminByRole || isAdminInDb;
 
-                if (!isAdmin)
+                if (isAdmin)
                 {
-                    return StatusCode(403, new { error = "Forbidden", message = "Only admins can view profile change requests" });
+                    // Admin can only see profile requests where they are assigned as approver
+                    filterByApprover = true;
+                    approverId = currentEmployeeId;
+                    employee_id = null; // Don't filter by employee_id when filtering by approver
                 }
-
-                // Admin can only see profile requests where they are assigned as approver
-                filterByApprover = true;
-                approverId = currentEmployeeId;
-                employee_id = null; // Don't filter by employee_id when filtering by approver
+                // If not admin, they can see their own requests (handled by filterEmployeeId below)
             }
 
             // Regular employees see only their own requests
@@ -206,7 +206,11 @@ public class RequestsController : ControllerBase
             // Get current user's employee ID from JWT token (maps email to employee_id)
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
-            var request = await _requestService.CreateRequestAsync(dto, currentEmployeeId);
+            // Get user role from JWT token to pass to service layer
+            var userRole = _userContextService.GetRoleFromClaims(User);
+
+            // Create request - service layer will handle auto-approval logic
+            var request = await _requestService.CreateRequestAsync(dto, currentEmployeeId, userRole);
 
             return CreatedAtAction(
                 nameof(GetRequest),

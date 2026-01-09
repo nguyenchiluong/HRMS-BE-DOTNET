@@ -17,6 +17,7 @@ public class TimesheetService : ITimesheetService
     private readonly IEmployeeRepository _employeeRepository;
     private readonly IRequestTypeRepository _requestTypeRepository;
     private readonly INotificationService _notificationService;
+    private readonly IRequestService _requestService;
     private readonly ILogger<TimesheetService> _logger;
 
     private const decimal MAX_HOURS_PER_WEEK = 168m; // 7 days * 24 hours
@@ -28,6 +29,7 @@ public class TimesheetService : ITimesheetService
         IEmployeeRepository employeeRepository,
         IRequestTypeRepository requestTypeRepository,
         INotificationService notificationService,
+        IRequestService requestService,
         ILogger<TimesheetService> logger)
     {
         _timesheetRepository = timesheetRepository;
@@ -35,6 +37,7 @@ public class TimesheetService : ITimesheetService
         _employeeRepository = employeeRepository;
         _requestTypeRepository = requestTypeRepository;
         _notificationService = notificationService;
+        _requestService = requestService;
         _logger = logger;
     }
 
@@ -42,7 +45,7 @@ public class TimesheetService : ITimesheetService
     // Timesheet Submission
     // ========================================
 
-    public async Task<TimesheetResponse> SubmitTimesheetAsync(SubmitTimesheetRequest dto, long employeeId)
+    public async Task<TimesheetResponse> SubmitTimesheetAsync(SubmitTimesheetRequest dto, long employeeId, string? userRole = null)
     {
         var weekStartDate = DateOnly.FromDateTime(dto.WeekStartDate);
         var weekEndDate = DateOnly.FromDateTime(dto.WeekEndDate);
@@ -151,8 +154,51 @@ public class TimesheetService : ITimesheetService
 
         var createdRequest = await _requestRepository.CreateRequestAsync(request);
 
-        // 6.5. Send notification to manager if approver is set
-        if (approverEmployeeId.HasValue)
+        // Check if request should be auto-approved:
+        // Flow 1: If employee is an admin (from JWT role claim) → auto-approve
+        // Flow 2: If employee has no manager (manager_id is null) → auto-approve
+        var shouldAutoApprove = false;
+        string? autoApprovalComment = null;
+
+        // Check if user is admin from role claim
+        var isAdmin = !string.IsNullOrEmpty(userRole) && userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
+
+        // Check if employee has no manager
+        var hasNoManager = !employee.ManagerId.HasValue;
+
+        if (isAdmin || hasNoManager)
+        {
+            shouldAutoApprove = true;
+            autoApprovalComment = isAdmin
+                ? "Auto-approved: Employee is an admin"
+                : "Auto-approved: Employee has no manager (manager_id is null)";
+
+            _logger.LogInformation(
+                "Auto-approving timesheet request {RequestId} for employee {EmployeeId} (HasNoManager: {HasNoManager}, IsAdmin: {IsAdmin}) - Reason: {Reason}",
+                createdRequest.Id, employeeId, hasNoManager, isAdmin, autoApprovalComment);
+        }
+
+        // If auto-approval conditions are met, approve the request
+        // This will apply changes and send notifications
+        if (shouldAutoApprove)
+        {
+            try
+            {
+                _logger.LogInformation("Auto-approving timesheet request {RequestId} for employee {EmployeeId} - Reason: {Reason}", createdRequest.Id, employeeId, autoApprovalComment);
+                await _requestService.ApproveRequestAsync(createdRequest.Id, employeeId, autoApprovalComment);
+                
+                // Return approved timesheet response
+                return await BuildTimesheetResponseAsync(createdRequest.Id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error auto-approving timesheet request {RequestId}", createdRequest.Id);
+                // If auto-approval fails, continue with normal flow (request will remain pending)
+            }
+        }
+
+        // 6.5. Send notification to manager if approver is set (only if not auto-approved)
+        if (approverEmployeeId.HasValue && !shouldAutoApprove)
         {
             try
             {

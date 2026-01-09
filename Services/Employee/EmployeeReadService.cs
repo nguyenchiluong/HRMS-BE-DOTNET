@@ -42,7 +42,7 @@ public class EmployeeReadService : IEmployeeReadService
         return e is null ? null : EmployeeMapper.ToDto(e);
     }
 
-    public async Task<EmployeeDto> GetByOnboardingTokenAsync(string token)
+    public async Task<OnboardDto> GetByOnboardingTokenAsync(string token)
     {
         var result = _tokenService.ValidateToken(token);
         if (!result.IsValid)
@@ -51,7 +51,86 @@ public class EmployeeReadService : IEmployeeReadService
         var employee = await _repo.GetByIdWithDetailsAsync(result.EmployeeId)
             ?? throw new KeyNotFoundException("Employee not found");
 
-        return EmployeeMapper.ToDto(employee);
+        // Fetch education records
+        var educations = await _db.Educations
+            .Where(e => e.EmployeeId == result.EmployeeId)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var educationDtos = educations.Select(e => new EducationDto
+        {
+            Degree = e.Degree,
+            FieldOfStudy = e.FieldOfStudy,
+            Country = e.Country,
+            Institution = e.Institution,
+            StartYear = e.StartYear,
+            EndYear = e.EndYear,
+            Gpa = e.Gpa
+        }).ToList();
+
+        // Fetch bank account
+        var bankAccount = await _db.BankAccounts
+            .Where(b => b.EmployeeId == result.EmployeeId)
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
+
+        BankAccountDto? bankAccountDto = null;
+        if (bankAccount != null)
+        {
+            bankAccountDto = new BankAccountDto
+            {
+                BankName = bankAccount.BankName,
+                AccountNumber = bankAccount.AccountNumber,
+                AccountName = bankAccount.AccountName,
+                SwiftCode = bankAccount.SwiftCode,
+                BranchCode = bankAccount.BranchCode
+            };
+        }
+
+        // Map employee to OnboardDto format
+        return new OnboardDto
+        {
+            // Personal details
+            FirstName = employee.FirstName,
+            LastName = employee.LastName,
+            PreferredName = employee.PreferredName,
+            Sex = employee.Sex,
+            DateOfBirth = employee.DateOfBirth,
+            MaritalStatus = employee.MaritalStatus,
+            Pronoun = employee.Pronoun,
+            PersonalEmail = employee.PersonalEmail,
+            Phone = employee.Phone,
+            Phone2 = employee.Phone2,
+
+            // Address
+            PermanentAddress = employee.PermanentAddress,
+            CurrentAddress = employee.CurrentAddress,
+
+            // National ID
+            NationalId = employee.NationalIdNumber != null || employee.NationalIdCountry != null
+                ? new NationalIdDto
+                {
+                    Country = employee.NationalIdCountry,
+                    Number = employee.NationalIdNumber,
+                    IssuedDate = employee.NationalIdIssuedDate,
+                    ExpirationDate = employee.NationalIdExpirationDate,
+                    IssuedBy = employee.NationalIdIssuedBy
+                }
+                : null,
+
+            // Social Insurance & Tax
+            SocialInsuranceNumber = employee.SocialInsuranceNumber,
+            TaxId = employee.TaxId,
+
+            // Education history
+            Education = educationDtos.Count > 0 ? educationDtos : null,
+
+            // Bank account
+            BankAccount = bankAccountDto,
+
+            // Comment (not stored in employee table, so always null)
+            Comment = null
+        };
     }
 
     public async Task<EmployeePaginatedResponse<FilteredEmployeeDto>> GetFilteredAsync(

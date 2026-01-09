@@ -15,6 +15,7 @@ public class TimeOffService : ITimeOffService
     private readonly IRequestTypeRepository _requestTypeRepository;
     private readonly IEmployeeRepository _employeeRepository;
     private readonly INotificationService _notificationService;
+    private readonly IRequestService _requestService;
     private readonly ILogger<TimeOffService> _logger;
 
     public TimeOffService(
@@ -23,6 +24,7 @@ public class TimeOffService : ITimeOffService
         IRequestTypeRepository requestTypeRepository,
         IEmployeeRepository employeeRepository,
         INotificationService notificationService,
+        IRequestService requestService,
         ILogger<TimeOffService> logger)
     {
         _requestRepository = requestRepository;
@@ -30,13 +32,15 @@ public class TimeOffService : ITimeOffService
         _requestTypeRepository = requestTypeRepository;
         _employeeRepository = employeeRepository;
         _notificationService = notificationService;
+        _requestService = requestService;
         _logger = logger;
     }
 
     public async Task<TimeOffRequestResponseDto> SubmitTimeOffRequestAsync(
         SubmitTimeOffRequestDto dto,
         long employeeId,
-        List<string>? attachmentUrls = null)
+        List<string>? attachmentUrls = null,
+        string? userRole = null)
     {
         // Validate dates
         if (dto.StartDate > dto.EndDate)
@@ -133,8 +137,80 @@ public class TimeOffService : ITimeOffService
 
         var createdRequest = await _requestRepository.CreateRequestAsync(request);
 
-        // Send notification to manager if approver is set
-        if (approverEmployeeId.HasValue)
+        // Check if request should be auto-approved:
+        // Flow 1: If employee is an admin (from JWT role claim) → auto-approve
+        // Flow 2: If employee has no manager (manager_id is null) → auto-approve
+        var shouldAutoApprove = false;
+        string? autoApprovalComment = null;
+
+        // Check if user is admin from role claim
+        var isAdmin = !string.IsNullOrEmpty(userRole) && userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
+
+        // Check if employee has no manager
+        var hasNoManager = !employee.ManagerId.HasValue;
+
+        if (isAdmin || hasNoManager)
+        {
+            shouldAutoApprove = true;
+            autoApprovalComment = isAdmin
+                ? "Auto-approved: Employee is an admin"
+                : "Auto-approved: Employee has no manager (manager_id is null)";
+
+            _logger.LogInformation(
+                "Auto-approving time-off request {RequestId} for employee {EmployeeId} (HasNoManager: {HasNoManager}, IsAdmin: {IsAdmin}) - Reason: {Reason}",
+                createdRequest.Id, employeeId, hasNoManager, isAdmin, autoApprovalComment);
+        }
+
+        // If auto-approval conditions are met, approve the request
+        // This will apply changes (leave deduction) and send notifications
+        if (shouldAutoApprove)
+        {
+            try
+            {
+                _logger.LogInformation("Auto-approving time-off request {RequestId} for employee {EmployeeId} - Reason: {Reason}", createdRequest.Id, employeeId, autoApprovalComment);
+                var approvedRequestDto = await _requestService.ApproveRequestAsync(createdRequest.Id, employeeId, autoApprovalComment);
+
+                // Extract payload from RequestDto (Payload is JsonElement?)
+                Dictionary<string, object>? approvedPayload = null;
+                if (approvedRequestDto.Payload.HasValue)
+                {
+                    approvedPayload = JsonSerializer.Deserialize<Dictionary<string, object>>(approvedRequestDto.Payload.Value.GetRawText());
+                }
+
+                // Use attachments from RequestDto if available, otherwise use original attachmentUrls
+                var approvedAttachments = approvedRequestDto.Attachments ?? attachmentUrls;
+                var approvedRequestId = approvedPayload?.ContainsKey("requestId") == true
+                    ? approvedPayload["requestId"].ToString()
+                    : requestId;
+
+                // Parse SubmittedDate from RequestDto (it's an ISO timestamp string)
+                var submittedDate = DateTime.TryParse(approvedRequestDto.SubmittedDate, out var parsedDate)
+                    ? parsedDate
+                    : createdRequest.RequestedAt;
+
+                return new TimeOffRequestResponseDto
+                {
+                    Id = approvedRequestId ?? requestId,
+                    Type = requestTypeLookup.Code,
+                    StartDate = dto.StartDate,
+                    EndDate = dto.EndDate,
+                    Duration = duration,
+                    SubmittedDate = submittedDate,
+                    Status = approvedRequestDto.Status.ToLower(),
+                    Reason = approvedRequestDto.Reason,
+                    Attachments = approvedAttachments,
+                    Message = "Request submitted and auto-approved successfully"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error auto-approving time-off request {RequestId}", createdRequest.Id);
+                // If auto-approval fails, continue with normal flow (request will remain pending)
+            }
+        }
+
+        // Send notification to manager if approver is set (only if not auto-approved)
+        if (approverEmployeeId.HasValue && !shouldAutoApprove)
         {
             try
             {

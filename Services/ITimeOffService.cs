@@ -4,7 +4,7 @@ namespace EmployeeApi.Services;
 
 public interface ITimeOffService
 {
-    Task<TimeOffRequestResponseDto> SubmitTimeOffRequestAsync(SubmitTimeOffRequestDto dto, long employeeId, List<string>? attachmentUrls = null);
+    Task<TimeOffRequestResponseDto> SubmitTimeOffRequestAsync(SubmitTimeOffRequestDto dto, long employeeId, List<string>? attachmentUrls = null, string? userRole = null);
     Task<LeaveBalancesResponseDto> GetLeaveBalancesAsync(long employeeId, int year);
     Task<TimeOffRequestHistoryResponseDto> GetTimeOffRequestHistoryAsync(
         long employeeId,

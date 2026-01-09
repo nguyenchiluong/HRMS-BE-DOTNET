@@ -10,6 +10,7 @@ public record EmployeeDto(
     string? PersonalEmail,
     string? Phone,
     string? Phone2,
+    string? Avatar,
     string? Sex,
     DateOnly? DateOfBirth,
     string? MaritalStatus,
@@ -69,6 +70,10 @@ public class InitialProfileDto
     public DateOnly StartDate { get; set; }
     public long? ManagerId { get; set; }
     public long? HrId { get; set; }
+    /// <summary>
+    /// Optional bank account information to be saved during initial profile creation
+    /// </summary>
+    public BankAccountDto? BankAccount { get; set; }
 }
 
 /// <summary>
@@ -93,6 +98,8 @@ public class BankAccountDto
     public string BankName { get; set; } = default!;
     public string AccountNumber { get; set; } = default!;
     public string? AccountName { get; set; }
+    public string? SwiftCode { get; set; }
+    public string? BranchCode { get; set; }
 }
 
 /// <summary>
@@ -177,6 +184,7 @@ public class UpdateProfileDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? PreferredName { get; set; }
+    public string? Avatar { get; set; }
     public string? Sex { get; set; }
     public DateOnly? DateOfBirth { get; set; }
     public string? MaritalStatus { get; set; }
