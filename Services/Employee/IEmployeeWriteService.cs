@@ -34,5 +34,11 @@ public interface IEmployeeWriteService
     /// Reassigns supervisors (manager and HR) for an employee
     /// </summary>
     Task ReassignSupervisorsAsync(long employeeId, ReassignSupervisorsDto input);
+
+    /// <summary>
+    /// Resends the onboarding email link for an employee with pending onboarding status
+    /// Generates a new token (invalidating any previous token) and sends the email
+    /// </summary>
+    Task ResendOnboardingEmailAsync(long employeeId);
 }
 
