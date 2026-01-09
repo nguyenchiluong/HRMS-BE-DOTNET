@@ -206,7 +206,11 @@ public class RequestsController : ControllerBase
             // Get current user's employee ID from JWT token (maps email to employee_id)
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
-            var request = await _requestService.CreateRequestAsync(dto, currentEmployeeId);
+            // Get user role from JWT token to pass to service layer
+            var userRole = _userContextService.GetRoleFromClaims(User);
+
+            // Create request - service layer will handle auto-approval logic
+            var request = await _requestService.CreateRequestAsync(dto, currentEmployeeId, userRole);
 
             return CreatedAtAction(
                 nameof(GetRequest),

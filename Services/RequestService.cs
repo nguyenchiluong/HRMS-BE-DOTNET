@@ -88,7 +88,7 @@ public class RequestService : IRequestService
         return MapToRequestDetailsDto(request);
     }
 
-    public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId)
+    public async Task<RequestDto> CreateRequestAsync(CreateRequestDto dto, long requesterEmployeeId, string? userRole = null)
     {
         RequestTypeLookup? requestTypeLookup = null;
 
@@ -117,6 +117,9 @@ public class RequestService : IRequestService
 
         // Category-specific validation
         await ValidateRequestByCategoryAsync(requestTypeLookup, dto, requesterEmployeeId);
+
+        // Check if user is admin from role claim (used for both profile approver assignment and auto-approval)
+        var isAdmin = !string.IsNullOrEmpty(userRole) && userRole.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
 
         // Build payload with attachments if provided
         string? payloadJson = null;
@@ -155,7 +158,8 @@ public class RequestService : IRequestService
             : (DateTime?)null;
 
         // For profile requests, assign approver based on employee's HR admin (hrId)
-        long? approverEmployeeId = null;
+        // Exception: If requester is an admin, they can auto-approve, so HR admin is not required
+        long? profileApproverEmployeeId = null;
         if (requestTypeLookup.Category?.ToLower() == "profile")
         {
             var requester = await _employeeRepository.GetByIdAsync(requesterEmployeeId);
@@ -164,33 +168,39 @@ public class RequestService : IRequestService
                 throw new ArgumentException($"Employee with ID {requesterEmployeeId} not found");
             }
 
-            if (requester.HrId.HasValue)
+            // If requester is an admin, they can auto-approve, so HR admin is not required
+            if (!isAdmin)
             {
-                // Verify that the HR admin exists and is active
-                var hrAdmin = await _employeeRepository.GetByIdAsync(requester.HrId.Value);
-                if (hrAdmin == null)
+                if (requester.HrId.HasValue)
                 {
-                    throw new ArgumentException($"HR admin with ID {requester.HrId.Value} not found. Please contact support to assign an HR admin.");
-                }
+                    // Verify that the HR admin exists and is active
+                    var hrAdmin = await _employeeRepository.GetByIdAsync(requester.HrId.Value);
+                    if (hrAdmin == null)
+                    {
+                        throw new ArgumentException($"HR admin with ID {requester.HrId.Value} not found. Please contact support to assign an HR admin.");
+                    }
 
-                if (hrAdmin.Status != "ACTIVE")
+                    if (hrAdmin.Status != "ACTIVE")
+                    {
+                        throw new ArgumentException($"HR admin with ID {requester.HrId.Value} is not active. Please contact support.");
+                    }
+
+                    profileApproverEmployeeId = requester.HrId.Value;
+                }
+                else
                 {
-                    throw new ArgumentException($"HR admin with ID {requester.HrId.Value} is not active. Please contact support.");
+                    throw new ArgumentException("No HR admin is assigned to this employee. Please contact support to assign an HR admin before submitting a profile change request.");
                 }
-
-                approverEmployeeId = requester.HrId.Value;
             }
-            else
-            {
-                throw new ArgumentException("No HR admin is assigned to this employee. Please contact support to assign an HR admin before submitting a profile change request.");
-            }
+            // If admin, profileApproverEmployeeId remains null (will be set to requester during auto-approval)
         }
 
+        // Create request as Pending (will be auto-approved if conditions are met)
         var request = new RequestEntity
         {
             RequestTypeId = requestTypeLookup.Id,
             RequesterEmployeeId = requesterEmployeeId,
-            ApproverEmployeeId = approverEmployeeId,
+            ApproverEmployeeId = profileApproverEmployeeId,
             EffectiveFrom = effectiveFrom,
             EffectiveTo = effectiveTo,
             Reason = dto.Reason,
@@ -204,6 +214,7 @@ public class RequestService : IRequestService
         var createdRequest = await _requestRepository.CreateRequestAsync(request);
 
         // For PROFILE_ID_CHANGE requests, compute and store fieldChangeDetails in the payload
+        // This must happen BEFORE auto-approval so field changes are always computed
         if (requestTypeLookup.Code == "PROFILE_ID_CHANGE" && !string.IsNullOrEmpty(createdRequest.Payload))
         {
             var fieldChangeDetails = await ComputeFieldChangesAsync(createdRequest);
@@ -224,26 +235,68 @@ public class RequestService : IRequestService
             }
         }
 
-        // Send notification when profile request is created
-        if (requestTypeLookup.Category?.ToLower() == "profile" && approverEmployeeId.HasValue)
+        // Check if request should be auto-approved:
+        // Flow 1: If employee is an admin (from JWT role claim) → auto-approve
+        // Flow 2: If employee has no manager (manager_id is null) → auto-approve
+        var shouldAutoApprove = false;
+        string? autoApprovalComment = null;
+
+        // Check if employee has no manager
+        // Reuse requester from profile check if available, otherwise fetch it
+        var requesterForManagerCheck = await _employeeRepository.GetByIdAsync(requesterEmployeeId);
+        var hasNoManager = requesterForManagerCheck != null && !requesterForManagerCheck.ManagerId.HasValue;
+
+        if (isAdmin || hasNoManager)
+        {
+            shouldAutoApprove = true;
+            autoApprovalComment = isAdmin
+                ? "Auto-approved: Employee is an admin"
+                : "Auto-approved: Employee has no manager (manager_id is null)";
+
+            _logger.LogInformation(
+                "Auto-approving request {RequestId} for employee {EmployeeId} (HasNoManager: {HasNoManager}, IsAdmin: {IsAdmin}) - Reason: {Reason}",
+                createdRequest.Id, requesterEmployeeId, hasNoManager, isAdmin, autoApprovalComment);
+        }
+
+        // If auto-approval conditions are met, approve the request
+        // This will apply changes (leave deduction, profile changes, etc.) and send notifications
+        if (shouldAutoApprove)
+        {
+            _logger.LogInformation("Auto-approving request {RequestId} for employee {EmployeeId} - Reason: {Reason}", createdRequest.Id, requesterEmployeeId, autoApprovalComment);
+            try
+            {
+                // ApproveRequestAsync returns RequestDto, so we can return it directly
+                var approvedRequest = await ApproveRequestAsync(createdRequest.Id, requesterEmployeeId, autoApprovalComment);
+                return approvedRequest;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error auto-approving request {RequestId}", createdRequest.Id);
+                // If auto-approval fails, still return the created request (it will remain pending)
+                // Don't fail the request creation if auto-approval fails
+            }
+        }
+
+        // Send notification when profile request is created (only if not auto-approved)
+        if (requestTypeLookup.Category?.ToLower() == "profile" && profileApproverEmployeeId.HasValue && !shouldAutoApprove)
         {
             try
             {
-                var requester = await _employeeRepository.GetByIdAsync(requesterEmployeeId);
-                if (requester != null)
+                var requesterForNotification = await _employeeRepository.GetByIdAsync(requesterEmployeeId);
+                if (requesterForNotification != null)
                 {
-                    var requestTypeName = FormatRequestTypeName(requestTypeLookup.Code);
+                    var requestTypeName = FormatRequestTypeName(requestTypeLookup.Code ?? "UNKNOWN");
                     await _rabbitMqNotificationService.SendNotificationAsync(new NotificationEvent
                     {
-                        EmpId = approverEmployeeId.Value,
+                        EmpId = profileApproverEmployeeId.Value,
                         Title = $"New {requestTypeName} Request",
-                        Message = $"{requester.FullName} has submitted a {requestTypeName.ToLower()} request. Please review and approve.",
+                        Message = $"{requesterForNotification.FullName} has submitted a {requestTypeName.ToLower()} request. Please review and approve.",
                         Type = "info"
                     });
 
                     _logger.LogInformation(
                         "Sent notification to admin {AdminId} for new profile request {RequestId} from employee {EmployeeId}",
-                        approverEmployeeId.Value, createdRequest.Id, requesterEmployeeId);
+                        profileApproverEmployeeId.Value, createdRequest.Id, requesterEmployeeId);
                 }
             }
             catch (Exception ex)
@@ -758,11 +811,46 @@ public class RequestService : IRequestService
             throw new InvalidOperationException("Only PENDING requests can be approved or rejected");
         }
 
-        // Verify manager relationship for approval request types
+        // Check if this is an auto-approval scenario or manual approval by admin:
+        // 1. Requester has no manager (manager_id is null) - they can approve their own request (auto-approval)
+        //    (Admin auto-approval is handled in controller using JWT role claim, so we don't check it here)
+        // 2. Approver is an admin - admins can approve any request (for manual approvals)
+        var isAutoApprovalAllowed = false;
+
+        // Case 1: Requester has no manager (manager_id is null) - allow self-approval
+        // This is needed because without it, the manager relationship check below would fail
+        var requester = await _employeeRepository.GetByIdAsync(request.RequesterEmployeeId);
+        if (requester != null)
+        {
+            var requesterHasNoManager = !requester.ManagerId.HasValue;
+            if (requesterHasNoManager && request.RequesterEmployeeId == approverEmployeeId)
+            {
+                isAutoApprovalAllowed = true;
+                _logger?.LogInformation(
+                    "Auto-approval allowed: Employee {EmployeeId} has no manager and is approving their own request {RequestId}",
+                    request.RequesterEmployeeId, id);
+            }
+        }
+
+        // Case 2: Approver is an admin (can approve any request, not just their own)
+        // This is for manual approvals by admins (admin approving someone else's request)
+        if (!isAutoApprovalAllowed)
+        {
+            var approver = await _employeeRepository.GetByIdAsync(approverEmployeeId);
+            if (approver != null && approver.PositionId == 9)
+            {
+                isAutoApprovalAllowed = true;
+                _logger?.LogInformation(
+                    "Approval allowed: Approver {ApproverId} is an admin for request {RequestId}",
+                    approverEmployeeId, id);
+            }
+        }
+
+        // Verify manager relationship for approval request types (if not auto-approval)
         var requestTypeCode = request.RequestTypeLookup?.Code?.ToUpper() ?? "";
         var isApprovalRequest = IsApprovalRequestType(requestTypeCode);
 
-        if (isApprovalRequest)
+        if (isApprovalRequest && !isAutoApprovalAllowed)
         {
             var isEmployeeUnderManager = await _requestRepository.IsEmployeeUnderManagerAsync(
                 request.RequesterEmployeeId, approverEmployeeId);
