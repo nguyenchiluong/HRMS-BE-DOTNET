@@ -184,6 +184,8 @@ public class EmployeeWriteService : IEmployeeWriteService
             employee.LastName = input.LastName.Trim();
         if (input.PreferredName != null)
             employee.PreferredName = string.IsNullOrWhiteSpace(input.PreferredName) ? null : input.PreferredName.Trim();
+        if (input.Avatar != null)
+            employee.Avatar = string.IsNullOrWhiteSpace(input.Avatar) ? null : input.Avatar.Trim();
         if (input.Sex != null)
             employee.Sex = input.Sex;
         if (input.DateOfBirth.HasValue)

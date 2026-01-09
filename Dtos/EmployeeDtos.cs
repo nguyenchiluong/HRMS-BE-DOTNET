@@ -10,6 +10,7 @@ public record EmployeeDto(
     string? PersonalEmail,
     string? Phone,
     string? Phone2,
+    string? Avatar,
     string? Sex,
     DateOnly? DateOfBirth,
     string? MaritalStatus,
@@ -183,6 +184,7 @@ public class UpdateProfileDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? PreferredName { get; set; }
+    public string? Avatar { get; set; }
     public string? Sex { get; set; }
     public DateOnly? DateOfBirth { get; set; }
     public string? MaritalStatus { get; set; }
