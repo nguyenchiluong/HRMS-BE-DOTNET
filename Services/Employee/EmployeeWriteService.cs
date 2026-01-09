@@ -126,10 +126,10 @@ public class EmployeeWriteService : IEmployeeWriteService
 
         // Save education records
         await SaveEducationRecordsAsync(employeeId, input.Education, replaceExisting: false);
-        
+
         // Save bank account
         await SaveBankAccountAsync(employeeId, input.BankAccount, replaceExisting: false);
-        
+
         // Save all changes together (employee, education, bank account)
         await _db.SaveChangesAsync();
 
@@ -153,10 +153,10 @@ public class EmployeeWriteService : IEmployeeWriteService
 
         // Save education records
         await SaveEducationRecordsAsync(result.EmployeeId, input.Education, replaceExisting: true);
-        
+
         // Save bank account
         await SaveBankAccountAsync(result.EmployeeId, input.BankAccount, replaceExisting: true);
-        
+
         // Save all changes together (employee, education, bank account)
         await _db.SaveChangesAsync();
 
@@ -356,8 +356,8 @@ public class EmployeeWriteService : IEmployeeWriteService
             return;
 
         // Normalize SwiftCode to uppercase if provided
-        var swiftCode = !string.IsNullOrWhiteSpace(bankAccountDto.SwiftCode) 
-            ? bankAccountDto.SwiftCode.Trim().ToUpperInvariant() 
+        var swiftCode = !string.IsNullOrWhiteSpace(bankAccountDto.SwiftCode)
+            ? bankAccountDto.SwiftCode.Trim().ToUpperInvariant()
             : null;
 
         var bankAccount = new BankAccount

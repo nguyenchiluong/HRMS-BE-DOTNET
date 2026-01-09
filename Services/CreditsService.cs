@@ -57,7 +57,7 @@ public class CreditsService : ICreditsService
         try
         {
             var creditsBaseUrl = _configuration["CreditsService:BaseUrl"];
-            
+
             if (string.IsNullOrEmpty(creditsBaseUrl))
             {
                 _logger.LogWarning("CreditsService:BaseUrl is not configured. Skipping credits account creation for employee {EmpId}", empId);
