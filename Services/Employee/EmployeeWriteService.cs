@@ -242,6 +242,31 @@ public class EmployeeWriteService : IEmployeeWriteService
         await _db.SaveChangesAsync();
     }
 
+    public async Task ResendOnboardingEmailAsync(long employeeId)
+    {
+        var employee = await _db.Employees.FindAsync(employeeId)
+            ?? throw new KeyNotFoundException("Employee not found");
+
+        // Check if employee has pending onboarding status
+        if (employee.Status != EmployeeStatus.PendingOnboarding.ToApiString())
+        {
+            throw new InvalidOperationException(
+                $"Cannot resend onboarding email. Employee status is '{employee.Status}', expected 'PENDING_ONBOARDING'");
+        }
+
+        // Check if personal email exists
+        if (string.IsNullOrWhiteSpace(employee.PersonalEmail))
+        {
+            throw new InvalidOperationException("Personal email is required to send onboarding email");
+        }
+
+        _logger.LogInformation("Resending onboarding email to employee {EmployeeId} with personal email {PersonalEmail}", employee.Id, employee.PersonalEmail);
+
+        // Generate a new token (this effectively invalidates the old token by creating a new one with a fresh timestamp)
+        // Note: The old token will still work until it expires, but the new token will be sent to the employee
+        await PublishOnboardingEmailEvent(employee, generatedPassword: null);
+    }
+
     #region Private Helper Methods
 
     private static string GenerateWorkEmail(string fullName)

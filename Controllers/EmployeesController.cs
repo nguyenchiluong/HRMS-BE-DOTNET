@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using EmployeeApi.Dtos;
 using EmployeeApi.Services.Employee;
@@ -453,6 +454,48 @@ public class EmployeesController : ControllerBase
             }
 
             return BadRequest(new { message = "Validation failed", errors });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// [Admin Only] Resends the onboarding email link for an employee with pending onboarding status
+    /// </summary>
+    /// <remarks>
+    /// This endpoint allows admins to resend the onboarding form link to employees who still have "pending onboarding" status.
+    /// A new token will be generated (effectively invalidating any previous token) and sent via email to the employee's personal email.
+    /// 
+    /// Note: The old token will still work until it expires based on its original timestamp, but the new token will be sent to the employee.
+    /// </remarks>
+    /// <param name="employeeId">The ID of the employee to resend the onboarding email for</param>
+    /// <returns>Success message</returns>
+    /// <response code="200">Onboarding email resent successfully</response>
+    /// <response code="400">Employee does not have pending onboarding status or personal email is missing</response>
+    /// <response code="403">User does not have admin privileges</response>
+    /// <response code="404">Employee not found</response>
+    [HttpPost("{employeeId:long}/resend-onboarding-email")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(object), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> ResendOnboardingEmail(long employeeId)
+    {
+        try
+        {
+            await _writeService.ResendOnboardingEmailAsync(employeeId);
+            return Ok(new { message = "Onboarding email resent successfully" });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { message = "Employee not found" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
