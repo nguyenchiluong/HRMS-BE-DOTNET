@@ -139,6 +139,7 @@ builder.Services.AddSingleton<IConnection>(sp =>
 
 builder.Services.AddScoped<IMessageProducerService, MessageProducerService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 //CORS
 
