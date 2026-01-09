@@ -48,8 +48,11 @@ public class TimeOffController : ControllerBase
             // Get current user's employee ID
             var currentEmployeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
 
+            // Get user role from JWT token to pass to service layer for auto-approval logic
+            var userRole = _userContextService.GetRoleFromClaims(User);
+
             // Pass attachment URLs directly from DTO (already uploaded to S3 by frontend)
-            var result = await _timeOffService.SubmitTimeOffRequestAsync(dto, currentEmployeeId, dto.Attachments);
+            var result = await _timeOffService.SubmitTimeOffRequestAsync(dto, currentEmployeeId, dto.Attachments, userRole);
 
             return Ok(result);
         }

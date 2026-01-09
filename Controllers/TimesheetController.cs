@@ -44,7 +44,11 @@ public class TimesheetController : ControllerBase
             }
 
             var employeeId = await _userContextService.GetEmployeeIdFromClaimsAsync(User);
-            var result = await _timesheetService.SubmitTimesheetAsync(dto, employeeId);
+            
+            // Get user role from JWT token to pass to service layer for auto-approval logic
+            var userRole = _userContextService.GetRoleFromClaims(User);
+            
+            var result = await _timesheetService.SubmitTimesheetAsync(dto, employeeId, userRole);
 
             return CreatedAtAction(
                 nameof(GetTimesheet),

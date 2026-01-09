@@ -11,7 +11,7 @@ public interface ITimesheetService
     /// <summary>
     /// Submit a weekly timesheet
     /// </summary>
-    Task<TimesheetResponse> SubmitTimesheetAsync(SubmitTimesheetRequest dto, long employeeId);
+    Task<TimesheetResponse> SubmitTimesheetAsync(SubmitTimesheetRequest dto, long employeeId, string? userRole = null);
 
     /// <summary>
     /// Adjust/update a timesheet (only for pending or rejected)
