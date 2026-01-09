@@ -378,7 +378,7 @@ public class EmployeeWriteService : IEmployeeWriteService
     {
         try
         {
-            var result = await _creditsService.CreateAccountAsync(employee.Id, bonusPoint: 0);
+            var result = await _creditsService.CreateAccountAsync(employee.Id, bonusPoint: 1000);
             if (result != null)
             {
                 _logger.LogInformation(
