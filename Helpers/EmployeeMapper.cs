@@ -22,6 +22,7 @@ public static class EmployeeMapper
             e.PersonalEmail,
             e.Phone,
             e.Phone2,
+            e.Avatar,
             e.Sex,
             e.DateOfBirth,
             e.MaritalStatus,

@@ -37,6 +37,9 @@ public class Employee
     [Column("phone_number_2")]
     public string? Phone2 { get; set; }
 
+    [Column("avatar")]
+    public string? Avatar { get; set; }
+
     // Personal Details
     [Column("sex")]
     public string? Sex { get; set; }
