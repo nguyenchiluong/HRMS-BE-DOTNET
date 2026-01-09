@@ -16,6 +16,7 @@ public class EmployeeWriteService : IEmployeeWriteService
     private readonly AppDbContext _db;
     private readonly IMessageProducerService _messageProducer;
     private readonly IAuthService _authService;
+    private readonly ICreditsService _creditsService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IOnboardingTokenService _tokenService;
     private readonly EmployeeValidationService _validationService;
@@ -28,6 +29,7 @@ public class EmployeeWriteService : IEmployeeWriteService
         AppDbContext db,
         IMessageProducerService messageProducer,
         IAuthService authService,
+        ICreditsService creditsService,
         IEmailTemplateService emailTemplateService,
         IOnboardingTokenService tokenService,
         EmployeeValidationService validationService,
@@ -37,6 +39,7 @@ public class EmployeeWriteService : IEmployeeWriteService
         _db = db;
         _messageProducer = messageProducer;
         _authService = authService;
+        _creditsService = creditsService;
         _emailTemplateService = emailTemplateService;
         _tokenService = tokenService;
         _validationService = validationService;
@@ -104,6 +107,7 @@ public class EmployeeWriteService : IEmployeeWriteService
 
         var generatedPassword = await RegisterAuthAccountAsync(entity);
         await PublishOnboardingEmailEvent(entity, generatedPassword);
+        await CreateCreditsAccountAsync(entity);
 
         return EmployeeMapper.ToDto(entity);
     }
@@ -366,6 +370,32 @@ public class EmployeeWriteService : IEmployeeWriteService
             BranchCode = bankAccountDto.BranchCode?.Trim()
         };
         await _db.BankAccounts.AddAsync(bankAccount);
+    }
+
+    private async Task CreateCreditsAccountAsync(Models.Employee employee)
+    {
+        try
+        {
+            var result = await _creditsService.CreateAccountAsync(employee.Id, bonusPoint: 0);
+            if (result != null)
+            {
+                _logger.LogInformation(
+                    "Successfully created credits account for employee {EmployeeId}",
+                    employee.Id);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Credits account creation returned null for employee {EmployeeId}. Credits service may be unavailable.",
+                    employee.Id);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to create credits account for employee {EmployeeId}",
+                employee.Id);
+        }
     }
 
     #endregion
