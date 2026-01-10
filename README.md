@@ -37,7 +37,7 @@ HRMS-BE-DOTNET/
 
 ## Prerequisites
 
-- .NET SDK 10.0 (or the target SDK indicated in `EmployeeApi.csproj`) — confirm with `dotnet --info`.
+- .NET SDK 9.0 (or the target SDK indicated in `EmployeeApi.csproj`) — confirm with `dotnet --info`.
 - PostgreSQL server (local or remote)
 - dotnet-ef tool (for migrations):
 
@@ -130,6 +130,7 @@ By default you’ll see the port in the console (e.g., `http://localhost:5000`).
 ## Main Endpoints (Implemented)
 
 Requests Controller (`Controllers/RequestsController.cs`):
+
 - GET `/api/v1/requests` — get list (query params: page, limit, status, request_type, employee_id, date_from, date_to)
 - POST `/api/v1/requests` — create: CREATE Request
 - GET `/api/v1/requests/{id}` — get details
@@ -140,6 +141,7 @@ Requests Controller (`Controllers/RequestsController.cs`):
 - GET `/api/v1/requests/summary` — manager’s summary
 
 Attendance Controller (`Controllers/AttendanceController.cs`):
+
 - POST `/api/v1/attendance/check-in` — check in (location optional)
 - POST `/api/v1/attendance/check-out` — check out
 - GET `/api/v1/attendance/history` — get paginated history

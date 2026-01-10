@@ -282,7 +282,27 @@ public class EmployeeWriteService : IEmployeeWriteService
     private async Task<string?> RegisterAuthAccountAsync(Models.Employee employee)
     {
         var generatedPassword = _authService.GenerateSecurePassword();
-        var role = employee.PositionId == 9 ? "ADMIN" : "USER";
+        string role;
+        if (employee.PositionId == 9)
+        {
+            role = "ADMIN";
+        }
+        else if (employee.JobLevelId.HasValue)
+        {
+            var jobLevelId = employee.JobLevelId.Value;
+            if (jobLevelId >= 5 && jobLevelId <= 8)
+            {
+                role = "MANAGER";
+            }
+            else
+            {
+                role = "USER";
+            }
+        }
+        else
+        {
+            role = "USER";
+        }
 
         var authResult = await _authService.RegisterAccountAsync(
             employee.Email,
