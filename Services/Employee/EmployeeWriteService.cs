@@ -260,7 +260,7 @@ public class EmployeeWriteService : IEmployeeWriteService
         string role;
         if (employee.PositionId == 9)
             role = "ADMIN";
-        else if (employee.PositionId == 5)
+        else if (employee.PositionId == 5 || employee.PositionId == 4)
             role = "MANAGER";
         else
             role = "USER";
